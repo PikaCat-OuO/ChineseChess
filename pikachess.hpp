@@ -593,14 +593,24 @@ constexpr Score WIN_SCORE{900};
 // 搜索出输棋的分值界限，超出此值就说明已经搜索出杀棋了
 constexpr Score LOST_SCORE{-900};
 
-// 最大并发数，现代cpu一般为超线程cpu，所以要除以2获得物理核心数
-Count MAX_CONCURRENT{static_cast<Count>(thread::hardware_concurrency() / 2)};
-
 // 电脑搜索的深度
 Depth CURRENT_DEPTH{0};
 
 // 定义全局线程局面
 PositionInfo POSITION_INFO{};
+
+// 使用wmic获取电脑物理CPU个数
+inline Count getPhysicalCores() {
+  QProcess queryCPU;
+  queryCPU.start("wmic");
+  queryCPU.waitForReadyRead();
+  queryCPU.write("cpu get NumberOfCores\n");
+  queryCPU.waitForReadyRead();
+  return queryCPU.readAllStandardOutput().split(' ')[2].sliced(3).toUInt();
+}
+
+// 最大并发数，数值上为物理核心数
+Count MAX_CONCURRENT{getPhysicalCores()};
 
 // 用于拆分走法，取高8位
 inline Position getSrc(const Move move) { return move >> 8; }
