@@ -140,8 +140,8 @@ void Dialog::initChess() {
 Dialog::~Dialog() { delete ui; }
 //重写关闭事件实现窗口关闭动画
 void Dialog::closeEvent(QCloseEvent *event) {
-  if (CloseCheck == false) {
-    CloseCheck = true;
+  if (this->mCloseCheck == false) {
+    this->mCloseCheck = true;
     event->ignore();
     //窗口关闭动画
     QPropertyAnimation *ani = new QPropertyAnimation(this, "windowOpacity");
@@ -159,36 +159,37 @@ void Dialog::closeEvent(QCloseEvent *event) {
 //重写鼠标移动事件，实现点击窗口任意处移动窗口的功能
 void Dialog::mousePressEvent(QMouseEvent *event) {
   if (event->button() == Qt::LeftButton) {
-    OnDialog = true;
-    MouseStartPoint = event->globalPosition().toPoint();
-    DialogStartPoint = this->frameGeometry().topLeft();
+    this->mOnDialog = true;
+    this->mMouseStartPoint = event->globalPosition().toPoint();
+    this->mDialogStartPoint = this->frameGeometry().topLeft();
   }
 }
 
 void Dialog::mouseMoveEvent(QMouseEvent *event) {
-  if ((event->buttons() == Qt::LeftButton) && OnDialog) {
-    QPoint MouseMovePoint = event->globalPosition().toPoint() - MouseStartPoint;
-    this->move(DialogStartPoint + MouseMovePoint);
+  if (event->buttons() == Qt::LeftButton && this->mOnDialog) {
+    QPoint MouseMoveDelta =
+        event->globalPosition().toPoint() - this->mMouseStartPoint;
+    this->move(this->mDialogStartPoint + MouseMoveDelta);
   } else {
     //单击按住按钮后离开按钮区域，按钮回复原样
-    ColorClose = QColor(212, 64, 39, 0);
-    QString QssClose = QString("#CloseButton{border-image:url(:/Images/"
+    this->mColorClose = QColor(212, 64, 39, 0);
+    QString qssClose = QString("#CloseButton{border-image:url(:/Images/"
                                "close.ico);border-radius:5px;background: "
                                "rgba(212,64,39,0);}#CloseButton:pressed{border-"
                                "image:url(:/Images/close_press.ico);}");
-    ui->CloseButton->setStyleSheet(QssClose);
-    ColorMin = QColor(38, 169, 218, 0);
-    QString QssMin = QString("#MinButton{border-image:url(:/Images/"
+    ui->CloseButton->setStyleSheet(qssClose);
+    this->mColorMin = QColor(38, 169, 218, 0);
+    QString qssMin = QString("#MinButton{border-image:url(:/Images/"
                              "min.ico);border-radius:5px;background: "
                              "rgba(38,169,218,0);}#MinButton:pressed{border-"
                              "image:url(:/Images/min_press.bmp);}");
-    ui->MinButton->setStyleSheet(QssMin);
+    ui->MinButton->setStyleSheet(qssMin);
   }
 }
 
 void Dialog::mouseReleaseEvent(QMouseEvent *event) {
   if (event->button() == Qt::LeftButton) {
-    OnDialog = false;
+    this->mOnDialog = false;
   }
 }
 
@@ -204,7 +205,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
   //关闭按钮点燃效果
   if (watched == ui->CloseButton) {
     if (event->type() == QEvent::Enter) {
-      QPropertyAnimation *ani = new QPropertyAnimation(this, "ColorClose");
+      QPropertyAnimation *ani = new QPropertyAnimation(this, "mColorClose");
       ani->setDuration(100);
       ani->setStartValue(getColorClose());
       ani->setEndValue(QColor(212, 64, 39, 230));
@@ -212,7 +213,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
       return true;
     }
     if (event->type() == QEvent::Leave) {
-      QPropertyAnimation *ani = new QPropertyAnimation(this, "ColorClose");
+      QPropertyAnimation *ani = new QPropertyAnimation(this, "mColorClose");
       ani->setDuration(100);
       ani->setStartValue(getColorClose());
       ani->setEndValue(QColor(212, 64, 39, 0));
@@ -223,7 +224,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
   //最小化按钮点燃效果
   if (watched == ui->MinButton) {
     if (event->type() == QEvent::Enter) {
-      QPropertyAnimation *ani = new QPropertyAnimation(this, "ColorMin");
+      QPropertyAnimation *ani = new QPropertyAnimation(this, "mColorMin");
       ani->setDuration(100);
       ani->setStartValue(getColorMin());
       ani->setEndValue(QColor(38, 169, 218, 230));
@@ -231,7 +232,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
       return true;
     }
     if (event->type() == QEvent::Leave) {
-      QPropertyAnimation *ani = new QPropertyAnimation(this, "ColorMin");
+      QPropertyAnimation *ani = new QPropertyAnimation(this, "mColorMin");
       ani->setDuration(100);
       ani->setStartValue(getColorMin());
       ani->setEndValue(QColor(38, 169, 218, 0));
@@ -241,7 +242,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
   }
 
   //将棋子和操作连接起来
-  if (!onMoving and event->type() == QEvent::MouseButtonPress and
+  if (!this->mOnMoving and event->type() == QEvent::MouseButtonPress and
       this->isChess(watched)) {
     mTarget = dynamic_cast<QLabel *>(watched);
     if (mSelected != nullptr and mSelected->text() != mTarget->text()) {
@@ -250,7 +251,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
                nowCol = (mSelected->x() - ui->ChessBoard->x() - 10) / 80,
                destRow = (mTarget->y() - ui->ChessBoard->y() - 10) / 80,
                destCol = (mTarget->x() - ui->ChessBoard->x() - 10) / 80;
-      if (isFliped) {
+      if (this->mIsFliped) {
         nowRow = 9 - nowRow;
         nowCol = 8 - nowCol;
         destRow = 9 - destRow;
@@ -312,7 +313,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
   }
 
   //走棋
-  if (!onMoving and mSelected != nullptr and
+  if (!this->mOnMoving and mSelected != nullptr and
       event->type() == QEvent::MouseButtonPress and
       (watched == ui->ChessBoard or watched == ui->Mask2)) {
     //获取棋盘左上角的坐标
@@ -326,7 +327,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
     uint16_t nowRow = (mSelected->y() - ui->ChessBoard->y() - 10) / 80,
              nowCol = (mSelected->x() - ui->ChessBoard->x() - 10) / 80,
              destRow = relativePos.y() / 80, destCol = relativePos.x() / 80;
-    if (isFliped) {
+    if (this->mIsFliped) {
       nowRow = 9 - nowRow;
       nowCol = 8 - nowCol;
       destRow = 9 - destRow;
@@ -375,10 +376,10 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
   return false;
 }
 // 获取关闭按钮颜色
-QColor Dialog::getColorClose() const { return ColorClose; }
+QColor Dialog::getColorClose() const { return this->mColorClose; }
 // 设置关闭按钮颜色
 void Dialog::setColorClose(const QColor color) {
-  ColorClose = color;
+  this->mColorClose = color;
   QString qss =
       QString("#CloseButton{border-image:url(:/Images/"
               "close.ico);border-radius:5px;background: rgba(%1, %2, %3, "
@@ -391,10 +392,10 @@ void Dialog::setColorClose(const QColor color) {
   ui->CloseButton->setStyleSheet(qss);
 }
 //获得最小化按钮颜色
-QColor Dialog::getColorMin() const { return ColorMin; }
+QColor Dialog::getColorMin() const { return this->mColorMin; }
 //设置最小化按钮颜色
 void Dialog::setColorMin(const QColor color) {
-  ColorMin = color;
+  this->mColorMin = color;
   QString qss =
       QString(
           "#MinButton{border-image:url(:/Images/"
@@ -418,7 +419,7 @@ void Dialog::on_PlayerSide_currentIndexChanged(int index) {
   //电脑红子
   if (COMPUTER_SIDE == RED) {
     //如果棋盘没翻转，那么翻转一下
-    if (!isFliped) {
+    if (!this->mIsFliped) {
       on_Flip_clicked();
       QEventLoop eventLoop;
       QTimer::singleShot(600, &eventLoop, &QEventLoop::quit);
@@ -459,7 +460,7 @@ void Dialog::on_Flip_clicked() {
         moveAni->setDuration(600);
         moveAni->setStartValue(
             QRect(target->x(), target->y(), target->width(), target->height()));
-        if (isFliped) {
+        if (this->mIsFliped) {
           //已经翻转了，现在要翻回去
           moveAni->setEndValue(QRect(30 + 80 * col, 90 + 80 * row,
                                      target->width(), target->height()));
@@ -489,7 +490,7 @@ void Dialog::on_Flip_clicked() {
   moveAni3->setDuration(600);
   moveAni3->setStartValue(QRect(ui->Mask3->x(), ui->Mask3->y(),
                                 ui->Mask3->width(), ui->Mask3->height()));
-  if (isFliped) {
+  if (this->mIsFliped) {
     //已经翻转了，现在要翻回去
     moveAni1->setEndValue(QRect(700 - ui->Mask1->x(), 900 - ui->Mask1->y(),
                                 ui->Mask1->width(), ui->Mask1->height()));
@@ -511,7 +512,7 @@ void Dialog::on_Flip_clicked() {
   moveAni1->start(QPropertyAnimation::DeleteWhenStopped);
   moveAni2->start(QPropertyAnimation::DeleteWhenStopped);
   moveAni3->start(QPropertyAnimation::DeleteWhenStopped);
-  isFliped = !isFliped;
+  this->mIsFliped = !this->mIsFliped;
 }
 
 // 重置棋盘槽函数
@@ -529,7 +530,7 @@ void Dialog::on_Reset_clicked() {
   ui->ComputerScore->setStyleSheet("font:40px;color:green;");
   ui->ComputerScoreBox->setTitle(QString::fromLocal8Bit("中国象棋云库"));
   // 重置isFliped标志
-  this->isFliped = false;
+  this->mIsFliped = false;
   // 设置mask为不可见
   ui->Mask1->setVisible(false);
   ui->Mask2->setVisible(false);
@@ -601,7 +602,7 @@ void Dialog::makeMove(Step step) {
   mComputerMoveAni->setTargetObject(mSelected);
   mComputerMoveAni->setStartValue(QRect(
       mSelected->x(), mSelected->y(), mSelected->width(), mSelected->height()));
-  if (isFliped) {
+  if (this->mIsFliped) {
     mComputerMoveAni->setEndValue(
         QRect(ui->ChessBoard->x() + 10 + (8 - destCol) * 80,
               ui->ChessBoard->y() + 10 + (9 - destRow) * 80, mSelected->width(),
@@ -727,7 +728,7 @@ inline Step Dialog::mapToStep(const Move move) {
 }
 
 inline void Dialog::setMoving(const bool isMoving) {
-  this->onMoving = isMoving;
+  this->mOnMoving = isMoving;
   if (isMoving) {
     // 如果GUI正在播放动画或电脑正在思考，界面三个按钮禁止点击
     ui->HardSelectionBox->setDisabled(true);

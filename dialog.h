@@ -1,5 +1,4 @@
-#ifndef DIALOG_H
-#define DIALOG_H
+#pragma once
 
 #include <QDialog>
 #include <QGraphicsDropShadowEffect>
@@ -19,8 +18,8 @@ QT_END_NAMESPACE
 
 class Dialog : public QDialog {
   Q_OBJECT
-  Q_PROPERTY(QColor ColorClose READ getColorClose WRITE setColorClose)
-  Q_PROPERTY(QColor ColorMin READ getColorMin WRITE setColorMin)
+  Q_PROPERTY(QColor mColorClose READ getColorClose WRITE setColorClose)
+  Q_PROPERTY(QColor mColorMin READ getColorMin WRITE setColorMin)
 
 public:
   Dialog(QWidget *parent = nullptr);
@@ -73,33 +72,32 @@ private slots:
 private:
   // 窗口相关的成员
   Ui::Dialog *ui;
-  bool CloseCheck = false;
-  bool OnDialog = false;
-  QPoint MouseStartPoint;
-  QPoint DialogStartPoint;
+  bool mCloseCheck{false};
+  bool mOnDialog{false};
+  QPoint mMouseStartPoint;
+  QPoint mDialogStartPoint;
   QColor getColorClose() const;
   void setColorClose(const QColor color);
-  QColor ColorClose = QColor(212, 64, 39, 0);
+  QColor mColorClose{QColor(212, 64, 39, 0)};
   QColor getColorMin() const;
   void setColorMin(const QColor color);
-  QColor ColorMin = QColor(38, 169, 218, 0);
+  QColor mColorMin{QColor(38, 169, 218, 0)};
 
   //这些是走子吃子所必须获得的对象指针和动画
-  QLabel *mSelected = nullptr;
-  QLabel *mTarget = nullptr;
-  QPropertyAnimation *mChessMoveAni =
-      new QPropertyAnimation(mSelected, "geometry");
-  QPropertyAnimation *mChessEatAni =
-      new QPropertyAnimation(mSelected, "geometry");
-  QPropertyAnimation *mComputerMoveAni =
-      new QPropertyAnimation(mSelected, "geometry");
-  QPropertyAnimation *mMaskAni = new QPropertyAnimation(this, "geometry");
+  QLabel *mSelected{nullptr};
+  QLabel *mTarget{nullptr};
+  QPropertyAnimation *mChessMoveAni{
+      new QPropertyAnimation(mSelected, "geometry")};
+  QPropertyAnimation *mChessEatAni{
+      new QPropertyAnimation(mSelected, "geometry")};
+  QPropertyAnimation *mComputerMoveAni{
+      new QPropertyAnimation(mSelected, "geometry")};
+  QPropertyAnimation *mMaskAni{new QPropertyAnimation(this, "geometry")};
 
   //走棋时不给用户乱动
-  bool onMoving{false};
+  bool mOnMoving{false};
 
   //这个是提供给电脑走子的对象指针二维数组
   QVector<QVector<QLabel *>> mLabelPointers;
-  bool isFliped{false};
+  bool mIsFliped{false};
 };
-#endif // DIALOG_H
