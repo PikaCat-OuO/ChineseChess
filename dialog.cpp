@@ -166,7 +166,7 @@ void Dialog::mousePressEvent(QMouseEvent *event) {
 }
 
 void Dialog::mouseMoveEvent(QMouseEvent *event) {
-  if ((event->buttons() == Qt::LeftButton) && OnDialog) {
+  if (event->buttons() == Qt::LeftButton && OnDialog) {
     QPoint MouseMovePoint = event->globalPosition().toPoint() - MouseStartPoint;
     this->move(DialogStartPoint + MouseMovePoint);
   } else {
