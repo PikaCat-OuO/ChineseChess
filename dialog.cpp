@@ -205,7 +205,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
   //关闭按钮点燃效果
   if (watched == ui->CloseButton) {
     if (event->type() == QEvent::Enter) {
-      QPropertyAnimation *ani = new QPropertyAnimation(this, "ColorClose");
+      QPropertyAnimation *ani = new QPropertyAnimation(this, "mColorClose");
       ani->setDuration(100);
       ani->setStartValue(getColorClose());
       ani->setEndValue(QColor(212, 64, 39, 230));
@@ -213,7 +213,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
       return true;
     }
     if (event->type() == QEvent::Leave) {
-      QPropertyAnimation *ani = new QPropertyAnimation(this, "ColorClose");
+      QPropertyAnimation *ani = new QPropertyAnimation(this, "mColorClose");
       ani->setDuration(100);
       ani->setStartValue(getColorClose());
       ani->setEndValue(QColor(212, 64, 39, 0));
@@ -224,7 +224,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
   //最小化按钮点燃效果
   if (watched == ui->MinButton) {
     if (event->type() == QEvent::Enter) {
-      QPropertyAnimation *ani = new QPropertyAnimation(this, "ColorMin");
+      QPropertyAnimation *ani = new QPropertyAnimation(this, "mColorMin");
       ani->setDuration(100);
       ani->setStartValue(getColorMin());
       ani->setEndValue(QColor(38, 169, 218, 230));
@@ -232,7 +232,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
       return true;
     }
     if (event->type() == QEvent::Leave) {
-      QPropertyAnimation *ani = new QPropertyAnimation(this, "ColorMin");
+      QPropertyAnimation *ani = new QPropertyAnimation(this, "mColorMin");
       ani->setDuration(100);
       ani->setStartValue(getColorMin());
       ani->setEndValue(QColor(38, 169, 218, 0));

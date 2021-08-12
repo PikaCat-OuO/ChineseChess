@@ -90,6 +90,8 @@ constexpr HashFlag HASH_BETA{1};
 // PV节点的置换表项
 constexpr HashFlag HASH_PV{2};
 struct HashItem {
+  // 读写锁
+  QReadWriteLock mHashItemLock;
   // 走该走法前对应的Zobrist，用于校验
   ZobristValue mZobrist;
   // 走法
@@ -100,6 +102,12 @@ struct HashItem {
   Depth mDepth;
   // 该走法对应的类型（ALPHA，PV，BETA）
   HashFlag mFlag;
+  // 默认构造
+  HashItem() = default;
+  // 复制构造，不用复制读写锁
+  HashItem(const HashItem& rhs):mZobrist{rhs.mZobrist}, mMove{rhs.mMove},
+                                  mScore{rhs.mScore}, mDepth{rhs.mDepth},
+                                  mFlag{rhs.mFlag}{};
 };
 // 置换表
 using HashTable = HashItem[HASH_SIZE];
@@ -172,7 +180,7 @@ struct PositionInfo {
   // 搜索置换表
   Score probeHash(Score alpha, Score beta, Depth depth, Move &hashMove);
   // 保存到置换表
-  void recordHash(HashFlag hashFlag, Score score, Depth depth, Move move);
+  void recordHash(HashItem &hashItem, HashFlag hashFlag, Score score, Depth depth, Move move);
   // 用于设置历史表、杀手表
   inline void setBestMove(const Move move, const Depth depth);
   // 走法生成
@@ -563,9 +571,6 @@ ZobristValue SIDE_ZOBRIST;
 // 置换表
 HashTable HASH_TABLE;
 
-// 置换表锁
-QReadWriteLock HASH_TABLE_LOCK;
-
 // 定义搜索时间
 Clock SEARCH_TIME{1000};
 
@@ -599,18 +604,8 @@ Depth CURRENT_DEPTH{0};
 // 定义全局线程局面
 PositionInfo POSITION_INFO{};
 
-// 使用wmic获取电脑物理CPU个数
-inline Count getPhysicalCores() {
-  QProcess queryCPU;
-  queryCPU.start("wmic");
-  queryCPU.waitForReadyRead();
-  queryCPU.write("cpu get NumberOfCores\n");
-  queryCPU.waitForReadyRead();
-  return queryCPU.readAllStandardOutput().split(' ')[2].sliced(3).toUInt();
-}
-
-// 最大并发数，数值上为物理核心数
-Count MAX_CONCURRENT{getPhysicalCores()};
+// 最大并发数，因为现在的cpu有超线程技术，所以除以2，数值上为物理核心数
+Count MAX_CONCURRENT{static_cast<Count>(thread::hardware_concurrency() / 2)};
 
 // 用于拆分走法，取高8位
 inline Position getSrc(const Move move) { return move >> 8; }
@@ -687,8 +682,14 @@ inline Position flipPosition(const Position pos) { return 254 - pos; }
 inline void resetCache(PositionInfo &positionInfo) {
   // 重置深度信息
   positionInfo.mDistance = 0;
-  // 重置置换表
-  memset(HASH_TABLE, 0, sizeof(HASH_TABLE));
+  // 重置置换表，不能用memset，否则就把读写锁搞坏了
+  for (auto &hashItem : HASH_TABLE) {
+    hashItem.mZobrist = 0;
+    hashItem.mDepth = 0;
+    hashItem.mFlag = HASH_ALPHA;
+    hashItem.mMove = 0;
+    hashItem.mScore = 0;
+  }
 }
 
 // 局面信息的构造函数
@@ -1134,10 +1135,12 @@ Score PositionInfo::probeHash(Score alpha, Score beta, Depth depth,
                               Move &hashMove) {
   // 杀棋的标志，如果杀棋了就不用满足深度条件
   bool isMate{false};
-  // 提取置换表项，注意到这里不取引用，因为下面要对分数进行修改
-  HASH_TABLE_LOCK.lockForRead();
-  HashItem hashItem = HASH_TABLE[this->mZobrist & HASH_MASK];
-  HASH_TABLE_LOCK.unlock();
+  // 提取置换表项，上锁
+  HashItem &hashItemRef = HASH_TABLE[this->mZobrist & HASH_MASK];
+  // 上锁并复制置换表项，注意到这里不直接使用上面的引用，因为下面要对分数进行修改
+  hashItemRef.mHashItemLock.lockForRead();
+  HashItem hashItem = hashItemRef;
+  hashItemRef.mHashItemLock.unlock();
   // 校验高位zobrist是否对应得上
   if (this->mZobrist not_eq hashItem.mZobrist) {
     hashMove = INVALID_MOVE;
@@ -1210,10 +1213,8 @@ Score PositionInfo::probeHash(Score alpha, Score beta, Depth depth,
 }
 
 // 保存到置换表
-void PositionInfo::recordHash(HashFlag hashFlag, Score score, Depth depth,
+void PositionInfo::recordHash(HashItem &hashItem, HashFlag hashFlag, Score score, Depth depth,
                               Move move) {
-  // 获取置换表项
-  HashItem &hashItem = HASH_TABLE[this->mZobrist & HASH_MASK];
   // 查看置换表中的项是否比当前项更加准确
   if (hashItem.mDepth > depth) {
     return;
@@ -1727,9 +1728,10 @@ Score PositionInfo::searchFull(Score alpha, const Score beta, const Depth depth,
   }
 
   // 记录到置换表
-  HASH_TABLE_LOCK.lockForWrite();
-  recordHash(bestMoveHashFlag, bestScore, depth, bestMove);
-  HASH_TABLE_LOCK.unlock();
+  HashItem &hashItem = HASH_TABLE[this->mZobrist & HASH_MASK];
+  hashItem.mHashItemLock.lockForWrite();
+  recordHash(hashItem, bestMoveHashFlag, bestScore, depth, bestMove);
+  hashItem.mHashItemLock.unlock();
   if (bestMove not_eq INVALID_MOVE) {
     // 如果不是Alpha走法，就将最佳走法保存到历史表、杀手表、置换表
     setBestMove(bestMove, depth);
@@ -1776,9 +1778,10 @@ Score PositionInfo::searchRoot(const Depth depth) {
     }
   }
   // 记录到置换表
-  HASH_TABLE_LOCK.lockForWrite();
-  recordHash(HASH_PV, bestScore, depth, this->mBestMove);
-  HASH_TABLE_LOCK.unlock();
+  HashItem &hashItem = HASH_TABLE[this->mZobrist & HASH_MASK];
+  hashItem.mHashItemLock.lockForWrite();
+  recordHash(hashItem, HASH_PV, bestScore, depth, this->mBestMove);
+  hashItem.mHashItemLock.unlock();
   setBestMove(this->mBestMove, depth);
   return bestScore;
 }
