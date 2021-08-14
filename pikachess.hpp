@@ -678,7 +678,7 @@ inline bool isSameColumn(const Move move) {
 // 用于计分的翻转
 inline Position flipPosition(const Position pos) { return 254 - pos; }
 
-// 重置置换表与深度信息
+// 重置置换表与深度信息，清空默认最佳走法
 inline void resetCache(PositionInfo &positionInfo) {
   // 重置深度信息
   positionInfo.mDistance = 0;
@@ -690,6 +690,8 @@ inline void resetCache(PositionInfo &positionInfo) {
     hashItem.mMove = 0;
     hashItem.mScore = 0;
   }
+  // 重置最佳走法
+  positionInfo.mBestMove = INVALID_MOVE;
 }
 
 // 局面信息的构造函数
@@ -1744,7 +1746,7 @@ Score PositionInfo::searchRoot(const Depth depth) {
   // 当前走法
   Move move;
   // 搜索有限状态机
-  SearchMachine search{*this, INVALID_MOVE, COMPUTER_SIDE};
+  SearchMachine search{*this, this->mBestMove, COMPUTER_SIDE};
   Score bestScore{LOSS_SCORE};
   // 遍历所有走法
   while ((move = search.nextMove())) {
