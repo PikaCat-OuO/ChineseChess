@@ -647,21 +647,24 @@ void Dialog::computerMove() {
         ui->ComputerScore->setStyleSheet("font:40px;");
       }
       // 根据分数写提示
-      if (score == 999) {
+      if (score == MATE_SCORE - 1) {
         // 提示电脑胜利
         ui->ComputerScore->setText(QString::fromLocal8Bit("电脑获胜"));
-        // 电脑赢了
-      } else if (score == -999) {
+        // 电脑赢了，这时玩家已经无法下棋了，因为有canMove函数的判断，走任何子都是被将军的
+      } else if (score == LOSS_SCORE) {
         // 提示玩家胜利
         ui->ComputerScore->setText(QString::fromLocal8Bit("玩家获胜"));
-        // 电脑输了，禁止玩家下棋，并且电脑不能再走了
+        // 电脑输了，禁止玩家下棋，并且电脑不能再走了，恢复界面三个按钮的点击
+        ui->HardSelectionBox->setDisabled(false);
+        ui->Reset->setDisabled(false);
+        ui->Flip->setDisabled(false);
         return;
-      } else if (score > WIN_SCORE) {
+      } else if (score > BAN_SCORE_MATE) {
         // 如果电脑快赢了
         ui->ComputerScore->setText(
             QString::number((MATE_SCORE - score - 1) / 2) +
             QString::fromLocal8Bit("步获胜"));
-      } else if (score < LOST_SCORE) {
+      } else if (score < BAN_SCORE_LOSS) {
         // 如果电脑快输了
         ui->ComputerScore->setText(QString::number((score - LOSS_SCORE) / 2) +
                                    QString::fromLocal8Bit("步落败"));
