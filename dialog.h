@@ -40,6 +40,8 @@ public:
   inline Move mapTo256(const Step &step);
   // 将一个256表示法的走法转换为10x9表示法
   inline Step mapToStep(const Move move);
+  // 设置按钮状态，可点击/不可点击
+  inline void setButtonDisabled(const bool disable);
   // 设置走棋状态
   inline void setMoving(const bool isMoving);
 
@@ -94,8 +96,11 @@ private:
       new QPropertyAnimation(mSelected, "geometry")};
   QPropertyAnimation *mMaskAni{new QPropertyAnimation(this, "geometry")};
 
-  //走棋时不给用户乱动
+  // 走棋时不给用户乱动
   bool mOnMoving{false};
+
+  // 电脑是否胜利
+  bool mComputerWin{false};
 
   //这个是提供给电脑走子的对象指针二维数组
   QVector<QVector<QLabel *>> mLabelPointers;

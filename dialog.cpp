@@ -130,8 +130,14 @@ void Dialog::initChess() {
     }
     mSelected = nullptr;
     mTarget = nullptr;
-    // 走完了，解锁
-    this->setMoving(false);
+    // 走完了，看电脑是否已经胜利
+    if (this->mComputerWin) {
+      // 电脑赢了，注意此时isMoving保持为true，这样可以使得棋子不响应玩家的操作
+      this->setButtonDisabled(false);
+    } else {
+      // 否则就正常回复按钮和isMoving的状态
+      this->setMoving(false);
+    }
   });
   // 初始化引擎
   init();
@@ -522,6 +528,8 @@ void Dialog::on_Reset_clicked() {
   ui->HardSelectionBox->setDisabled(false);
   // 重置局面信息
   ::init();
+  // 重置电脑胜利标志
+  this->mComputerWin = false;
   // 重启边选择器
   ui->PlayerSide->setCurrentIndex(0);
   ui->PlayerSide->setDisabled(false);
@@ -647,21 +655,24 @@ void Dialog::computerMove() {
         ui->ComputerScore->setStyleSheet("font:40px;");
       }
       // 根据分数写提示
-      if (score == 999) {
+      if (score == MATE_SCORE - 1) {
         // 提示电脑胜利
         ui->ComputerScore->setText(QString::fromLocal8Bit("电脑获胜"));
-        // 电脑赢了
-      } else if (score == -999) {
+        // 设置电脑胜利标志
+        this->mComputerWin = true;
+      } else if (score == LOSS_SCORE) {
         // 提示玩家胜利
         ui->ComputerScore->setText(QString::fromLocal8Bit("玩家获胜"));
-        // 电脑输了，禁止玩家下棋，并且电脑不能再走了
+        // 玩家获胜，电脑无法走棋，直接解锁按钮并返回
+        // 注意此时isMoving保持为true，这样可以使得棋子不响应玩家的操作
+        this->setButtonDisabled(false);
         return;
-      } else if (score > WIN_SCORE) {
+      } else if (score > BAN_SCORE_MATE) {
         // 如果电脑快赢了
         ui->ComputerScore->setText(
             QString::number((MATE_SCORE - score - 1) / 2) +
             QString::fromLocal8Bit("步获胜"));
-      } else if (score < LOST_SCORE) {
+      } else if (score < BAN_SCORE_LOSS) {
         // 如果电脑快输了
         ui->ComputerScore->setText(QString::number((score - LOSS_SCORE) / 2) +
                                    QString::fromLocal8Bit("步落败"));
@@ -727,9 +738,8 @@ inline Step Dialog::mapToStep(const Move move) {
           getDest(move) % 16 - 3};
 }
 
-inline void Dialog::setMoving(const bool isMoving) {
-  this->mOnMoving = isMoving;
-  if (isMoving) {
+inline void Dialog::setButtonDisabled(const bool disabled) {
+  if (disabled) {
     // 如果GUI正在播放动画或电脑正在思考，界面三个按钮禁止点击
     ui->HardSelectionBox->setDisabled(true);
     ui->Reset->setDisabled(true);
@@ -740,4 +750,9 @@ inline void Dialog::setMoving(const bool isMoving) {
     ui->Reset->setDisabled(false);
     ui->Flip->setDisabled(false);
   }
+}
+
+inline void Dialog::setMoving(const bool isMoving) {
+  this->mOnMoving = isMoving;
+  this->setButtonDisabled(isMoving);
 }
