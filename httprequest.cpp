@@ -2,7 +2,7 @@
 #include <WinSock.h>
 #include <iostream>
 
-HttpRequest::HttpRequest(const std::string& ip, int port) : m_ip(ip), m_port(port)
+HttpRequest::HttpRequest(const std::string& ip, int port) : mIp(ip), mPort(port)
 {
 }
 
@@ -12,7 +12,7 @@ HttpRequest::~HttpRequest(void)
 }
 
 // Http GET请求
-std::string HttpRequest::HttpGet(std::string req)
+std::string HttpRequest::httpGet(std::string req)
 {
     std::string ret = ""; // 返回Http Response
     try
@@ -23,17 +23,12 @@ std::string HttpRequest::HttpGet(std::string req)
 
         SOCKET clientSocket = socket(AF_INET, 1, 0);
         struct sockaddr_in ServerAddr{};
-        ServerAddr.sin_addr.s_addr = inet_addr(m_ip.c_str());
-        ServerAddr.sin_port = htons(m_port);
+        ServerAddr.sin_addr.s_addr = inet_addr(mIp.c_str());
+        ServerAddr.sin_port = htons(mPort);
         ServerAddr.sin_family = AF_INET;
         int errNo = connect(clientSocket, (sockaddr*)&ServerAddr, sizeof(ServerAddr));
         if(errNo == 0)
         {
-            //  "GET /[req] HTTP/1.1\r\n"
-            //  "Connection:Keep-Alive\r\n"
-            //  "Accept-Encoding:gzip, deflate\r\n"
-            //  "Accept-Language:zh-CN,en,*\r\n"
-            //  "User-Agent:Mozilla/5.0\r\n\r\n";
             std::string strSend = " HTTP/1.1\r\n"
                                   "Host: www.chessdb.cn\r\n"
                                   "Cookie:16888\r\n\r\n";
@@ -79,92 +74,6 @@ std::string HttpRequest::HttpGet(std::string req)
     return ret;
 }
 
-// Http POST请求
-std::string HttpRequest::HttpPost(std::string req, std::string data)
-{
-    std::string ret = ""; // 返回Http Response
-    try
-    {
-        // 开始进行socket初始化;
-        WSADATA wData;
-        ::WSAStartup(MAKEWORD(2, 2), &wData);
-
-        SOCKET clientSocket = socket(AF_INET, 1, 0);
-        struct sockaddr_in ServerAddr{};
-        ServerAddr.sin_addr.s_addr = inet_addr(m_ip.c_str());
-        ServerAddr.sin_port = htons(m_port);
-        ServerAddr.sin_family = AF_INET;
-        int errNo = connect(clientSocket, (sockaddr*)&ServerAddr, sizeof(ServerAddr));
-        if(errNo == 0)
-        {
-            // 格式化data长度
-            char len[10] = {0};
-            sprintf(len, "%llu", data.length());
-            std::string strLen = len;
-
-            //  "POST /[req] HTTP/1.1\r\n"
-            //  "Connection:Keep-Alive\r\n"
-            //  "Accept-Encoding:gzip, deflate\r\n"
-            //  "Accept-Language:zh-CN,en,*\r\n"
-            //  "Content-Length:[len]\r\n"
-            //  "Content-Type:application/x-www-form-urlencoded; charset=UTF-8\r\n"
-            //  "User-Agent:Mozilla/5.0\r\n\r\n"
-            //  "[data]\r\n\r\n";
-            std::string strSend = " HTTP/1.1\r\n"
-                                  "Cookie:16888\r\n"
-                                  "Content-Type:application/x-www-form-urlencoded\r\n"
-                                  "Charset:utf-8\r\n"
-                                  "Content-Length:";
-            strSend = "POST " + req + strSend + strLen + "\r\n\r\n" + data;
-
-            // 发送
-            errNo = send(clientSocket, strSend.c_str(), strSend.length(), 0);
-            if(errNo > 0)
-            {
-                //cout<<"发送成功\n";
-            }
-            else
-            {
-                std::cout << "errNo:" << errNo << std::endl;
-                return ret;
-            }
-
-            // 接收
-            char bufRecv[3069] = {0};
-            errNo = recv(clientSocket, bufRecv, 3069, 0);
-            if(errNo > 0)
-            {
-                ret = bufRecv;// 如果接收成功，则返回接收的数据内容
-            }
-            else
-            {
-                std::cout << "errNo:" << errNo << std::endl;
-                return ret;
-            }
-        }
-        else
-        {
-            errNo = WSAGetLastError();
-        }
-        // socket环境清理
-        ::WSACleanup();
-    }
-    catch (...)
-    {
-        return "";
-    }
-    return ret;
-}
-
-// 合成JSON字符串
-std::string HttpRequest::genJsonString(std::string key, int value)
-{
-    char buf[128] = {0};
-    sprintf(buf, "{\"%s\":%d}", key.c_str(), value);
-    std::string ret = buf;
-    return ret;
-}
-
 // 分割字符串
 std::vector<std::string> HttpRequest::split(const std::string &s, const std::string &seperator)
 {
@@ -203,19 +112,4 @@ std::vector<std::string> HttpRequest::split(const std::string &s, const std::str
         }
     }
     return result;
-}
-
-// 从Response中查找key对应的Header的内容
-std::string HttpRequest::getHeader(std::string respose, std::string key)
-{
-    std::vector<std::string> lines = split(respose, "\r\n");
-    for (size_t i = 0; i < lines.size(); i++)
-    {
-        std::vector<std::string> line = split(lines[i], ": ");// 注意空格
-        if (line.size() >= 2 && line[0] == key)
-        {
-            return line[1];
-        }
-    }
-    return "";
 }

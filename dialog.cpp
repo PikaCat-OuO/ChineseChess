@@ -635,54 +635,68 @@ void Dialog::makeMove(Step step) {
 
 void Dialog::computerMove() {
   QFuture future{QtConcurrent::run([&] {
+    // 先搜索云开局库
     const auto &[bookOK, step] = POSITION_INFO.searchBook();
     if (bookOK == QString::fromLocal8Bit("云库出步")) {
       ui->ComputerScoreBox->setTitle(QString::fromLocal8Bit("中国象棋云库"));
       ui->ComputerScore->setStyleSheet("font:40px;color:green;");
       ui->ComputerScore->setText(bookOK);
+      // 先尝试走一步
       POSITION_INFO.makeMove(mapTo256(step), COMPUTER_SIDE);
-      emit threadOK(step);
-    } else {
-      Score score = searchMain();
-      // 显示MetaInfo
-      ui->ComputerScoreBox->setTitle(QString::fromLocal8Bit("电脑局面分"));
-      // 根据情况设置字体颜色
-      if (score > 0) {
-        ui->ComputerScore->setStyleSheet("font:40px;color:green;");
-      } else if (score < 0) {
-        ui->ComputerScore->setStyleSheet("font:40px;color:red;");
-      } else {
-        ui->ComputerScore->setStyleSheet("font:40px;");
-      }
-      // 根据分数写提示
-      if (score == MATE_SCORE - 1) {
-        // 提示电脑胜利
-        ui->ComputerScore->setText(QString::fromLocal8Bit("电脑获胜"));
-        // 设置电脑胜利标志
-        this->mComputerWin = true;
-      } else if (score == LOSS_SCORE) {
-        // 提示玩家胜利
-        ui->ComputerScore->setText(QString::fromLocal8Bit("玩家获胜"));
-        // 玩家获胜，电脑无法走棋，直接解锁按钮并返回
-        // 注意此时isMoving保持为true，这样可以使得棋子不响应玩家的操作
-        this->setButtonDisabled(false);
+      // 如果走云端走法会产生重复局面，只有自己长将军时才不采纳云端走法
+      // 其他情况：对方长将军是有利于自己的，重复局面判和棋，以和为贵
+      if (POSITION_INFO.scoreRepeatFlag(POSITION_INFO.getRepeatFlag()) != BAN_SCORE_LOSS) {
+        emit threadOK(step);
         return;
-      } else if (score > BAN_SCORE_MATE) {
-        // 如果电脑快赢了
-        ui->ComputerScore->setText(
-            QString::number((MATE_SCORE - score - 1) / 2) +
-            QString::fromLocal8Bit("步获胜"));
-      } else if (score < BAN_SCORE_LOSS) {
-        // 如果电脑快输了
-        ui->ComputerScore->setText(QString::number((score - LOSS_SCORE) / 2) +
-                                   QString::fromLocal8Bit("步落败"));
-      } else {
-        ui->ComputerScore->setText(
-            QString::fromLocal8Bit("[") + QString::number(CURRENT_DEPTH - 1) +
-            QString::fromLocal8Bit("层]") + QString::number(score));
       }
-      emit threadOK(mapToStep(POSITION_INFO.mBestMove));
+      // 该步会导致自己长将军，不能走，撤回
+      POSITION_INFO.unMakeMove(mapTo256(step), COMPUTER_SIDE);
     }
+    // 云开局库无对应走法或者开局库走法导致我方长将军，由引擎出步
+    Score score = searchMain();
+    // 显示MetaInfo
+    ui->ComputerScoreBox->setTitle(QString::fromLocal8Bit("电脑局面分"));
+    // 根据情况设置字体颜色
+    if (score > 0) {
+      ui->ComputerScore->setStyleSheet("font:40px;color:green;");
+    } else if (score < 0) {
+      ui->ComputerScore->setStyleSheet("font:40px;color:red;");
+    } else {
+      ui->ComputerScore->setStyleSheet("font:40px;");
+    }
+    // 根据分数写提示
+    if (score == MATE_SCORE - 1) {
+      // 提示电脑胜利
+      ui->ComputerScore->setText(QString::fromLocal8Bit("电脑获胜"));
+      // 设置电脑胜利标志
+      this->mComputerWin = true;
+    } else if (score == LOSS_SCORE) {
+      // 提示玩家胜利
+      ui->ComputerScore->setText(QString::fromLocal8Bit("玩家获胜"));
+      // 玩家获胜，电脑无法走棋，直接解锁按钮并返回
+      // 注意此时isMoving保持为true，这样可以使得棋子不响应玩家的操作
+      this->setButtonDisabled(false);
+      return;
+    } else if (score > BAN_SCORE_MATE) {
+      // 如果电脑快赢了
+      ui->ComputerScore->setText(
+          QString::number((MATE_SCORE - score - 1) / 2) +
+          QString::fromLocal8Bit("步获胜"));
+    } else if (score < BAN_SCORE_LOSS) {
+      // 如果电脑快输了
+      ui->ComputerScore->setText(QString::number((score - LOSS_SCORE) / 2) +
+                                 QString::fromLocal8Bit("步落败"));
+    } else if ((score > BAN_SCORE_LOSS and score < LOST_SCORE) or (score > WIN_SCORE and score < BAN_SCORE_MATE)) {
+      // 如果产生了长将局面
+      // 显示MetaInfo
+      ui->ComputerScoreBox->setTitle(QString::fromLocal8Bit("局面状态"));
+      ui->ComputerScore->setText(QString::fromLocal8Bit("长将局面"));
+    } else {
+      ui->ComputerScore->setText(
+          QString::fromLocal8Bit("[") + QString::number(CURRENT_DEPTH - 1) +
+          QString::fromLocal8Bit("层]") + QString::number(score));
+    }
+    emit threadOK(mapToStep(POSITION_INFO.mBestMove));
   })};
 }
 
