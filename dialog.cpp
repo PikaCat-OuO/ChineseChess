@@ -441,7 +441,7 @@ void Dialog::on_ComputerHard_currentIndexChanged(int index) {
   // 电脑每一步至少搜索多长时间（单位：毫秒）
   switch (index) {
   case 0:
-    SEARCH_TIME = 1000;
+    SEARCH_TIME = 1500;
     break;
   case 1:
     SEARCH_TIME = 3000;

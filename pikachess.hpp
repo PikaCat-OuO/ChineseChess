@@ -651,7 +651,7 @@ ZobristValue SIDE_ZOBRIST;
 HashTable HASH_TABLE;
 
 // 定义搜索时间
-Clock SEARCH_TIME{1000};
+Clock SEARCH_TIME{1500};
 
 // 定义先行棋的分数
 constexpr Score ADVANCED_SCORE{3};
