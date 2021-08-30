@@ -190,8 +190,8 @@ struct PositionInfo {
   inline void unMakeMove(const Move move, const Side side);
   // 走棋,返回是否走成功
   inline bool makeMove(const Move move, const Side side);
-  // 当前是否可以走空步，即不在残局阶段
-  inline bool isNullOk(const Side side);
+  // 当前是否处于残局阶段
+  inline bool isNotEndgame(const Side side);
   // 走一步空步
   inline void makeNullMove();
   // 撤销走一步空步
@@ -657,25 +657,25 @@ Clock SEARCH_TIME{1500};
 constexpr Score ADVANCED_SCORE{3};
 
 // 定义输棋的分数
-constexpr Score LOSS_SCORE{-1000};
+constexpr Score LOSS_SCORE{-10000};
 
 // 定义和棋的分数
 constexpr Score DRAW_SCORE{-20};
 
 // 定义赢棋的分数
-constexpr Score MATE_SCORE{1000};
+constexpr Score MATE_SCORE{10000};
 
 // 长将判负的分值，低于该值将不写入置换表
-constexpr Score BAN_SCORE_MATE{950};
+constexpr Score BAN_SCORE_MATE{9500};
 
 // 长将判负的分值，高于该值将不写入置换表
-constexpr Score BAN_SCORE_LOSS{-950};
+constexpr Score BAN_SCORE_LOSS{-9500};
 
 // 搜索出赢棋的分值界限，超出此值就说明已经搜索出杀棋了
-constexpr Score WIN_SCORE{900};
+constexpr Score WIN_SCORE{9000};
 
 // 搜索出输棋的分值界限，超出此值就说明已经搜索出杀棋了
-constexpr Score LOST_SCORE{-900};
+constexpr Score LOST_SCORE{-9000};
 
 // 电脑搜索的深度
 Depth CURRENT_DEPTH{0};
@@ -1511,8 +1511,8 @@ inline bool PositionInfo::makeMove(const Move move, const Side side) {
   return true;
 }
 
-// 当前是否可以走空步，即不在残局阶段
-inline bool PositionInfo::isNullOk(const Side side) {
+// 当前是否处于残局阶段
+inline bool PositionInfo::isNotEndgame(const Side side) {
   if (side == RED) {
     return this->mRedScore > 400;
   } else {
@@ -1720,20 +1720,20 @@ Score PositionInfo::searchFull(Score alpha, const Score beta, const Depth depth,
     return tryScore;
   }
 
-  // 进行空步裁剪，不能连着走两步空步，被将军时不能走空步
-  // 并且在残局中不能走空步，不然会忽略“等招”这一重要策略
-  // 根节点的Beta值是"MATE_SCORE"，所以不可能发生空步裁剪)
-  if (nullOk and not this->mHistoryMove[this->mHistorySize - 1].mCheck and isNullOk(side)) {
-    // 走一步空步
-    makeNullMove();
-    // 获得评分，深度减掉空着裁剪推荐的两层，然后本身走了一步空步，还要再减掉一层
-    tryScore = -searchFull(-beta, 1 - beta, depth - 3, getOppSide(side), NO_NULL);
-    // 撤销空步
-    unMakeNullMove();
-    if (tryScore >= beta) {
+  /* 进行空步裁剪，不能连着走两步空步，被将军时不能走空步，残局不能走空步，不然会有特别大的风险
+     根节点的Beta值是"MATE_SCORE"，所以不可能发生空步裁剪 */
+  if (nullOk and not this->mHistoryMove[this->mHistorySize - 1].mCheck and
+      isNotEndgame(side)) {
+      // 走一步空步
+      makeNullMove();
+      // 获得评分，深度减掉空着裁剪推荐的两层，然后本身走了一步空步，还要再减掉一层
+      tryScore = -searchFull(-beta, 1 - beta, depth - 3, getOppSide(side), NO_NULL);
+      // 撤销空步
+      unMakeNullMove();
       // 如果足够好就可以发生截断
-      return tryScore;
-    }
+      if (tryScore >= beta) {
+        return tryScore;
+      }
   }
 
   // 搜索有限状态机
