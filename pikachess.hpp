@@ -190,8 +190,6 @@ struct PositionInfo {
   inline void unMakeMove(const Move move, const Side side);
   // 走棋,返回是否走成功
   inline bool makeMove(const Move move, const Side side);
-  // 当前是否处于超残局阶段
-  inline bool isNotSuperEndgame(const Side side);
   // 当前是否处于残局阶段
   inline bool isNotEndgame(const Side side);
   // 走一步空步
@@ -1513,15 +1511,6 @@ inline bool PositionInfo::makeMove(const Move move, const Side side) {
   return true;
 }
 
-// 当前是否处于超残局阶段
-inline bool PositionInfo::isNotSuperEndgame(const Side side) {
-  if (side == RED) {
-    return this->mRedScore > 200;
-  } else {
-    return this->mBlackScore > 200;
-  }
-}
-
 // 当前是否处于残局阶段
 inline bool PositionInfo::isNotEndgame(const Side side) {
   if (side == RED) {
@@ -1731,25 +1720,18 @@ Score PositionInfo::searchFull(Score alpha, const Score beta, const Depth depth,
     return tryScore;
   }
 
-  /* 进行空步裁剪，不能连着走两步空步，被将军时不能走空步
-     在开局和中局使用不带验证的适应性空步裁剪
-     在残局中使用带验证的适应性空步裁剪
-     在超残局阶段由于搜索层数速度提高，所以不用走空步
+  /* 进行空步裁剪，不能连着走两步空步，被将军时不能走空步，残局不能走空步，不然会有特别大的风险
      根节点的Beta值是"MATE_SCORE"，所以不可能发生空步裁剪 */
   if (nullOk and not this->mHistoryMove[this->mHistorySize - 1].mCheck and
-      isNotSuperEndgame(side)) {
-      // 适应性衰减层数
-      Depth adjustDepth = depth > 6 ? 3 : 2;
+      isNotEndgame(side)) {
       // 走一步空步
       makeNullMove();
-      // 获得评分，深度减掉空着裁剪的衰减层数，然后本身走了一步空步，还要再减掉一层
-      tryScore = -searchFull(-beta, 1 - beta, depth - adjustDepth - 1,
-                             getOppSide(side), NO_NULL);
+      // 获得评分，深度减掉空着裁剪推荐的两层，然后本身走了一步空步，还要再减掉一层
+      tryScore = -searchFull(-beta, 1 - beta, depth - 3, getOppSide(side), NO_NULL);
       // 撤销空步
       unMakeNullMove();
-      // 如果足够好就可以发生截断，如果是残局阶段就需要进行检查，这里使用了短路运算逻辑
-      if (tryScore >= beta and (isNotEndgame(side) or
-          searchFull(beta - 1, beta, depth - adjustDepth, side, NO_NULL) >= beta)) {
+      // 如果足够好就可以发生截断
+      if (tryScore >= beta) {
         return tryScore;
       }
   }
