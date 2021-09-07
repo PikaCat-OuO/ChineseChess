@@ -5,6 +5,7 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QtConcurrent/QtConcurrent>
+#include <QNetworkReply>
 
 using Position = uint8_t;
 using Move = uint16_t;
@@ -44,6 +45,8 @@ public:
   inline void setButtonDisabled(const bool disable);
   // 设置走棋状态
   inline void setMoving(const bool isMoving);
+  // 获取云开局库走法
+  inline std::tuple<QString, Step> searchBook();
 
 protected:
   void closeEvent(QCloseEvent *);

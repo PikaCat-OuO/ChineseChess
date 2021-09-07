@@ -636,7 +636,7 @@ void Dialog::makeMove(Step step) {
 void Dialog::computerMove() {
   QFuture future{QtConcurrent::run([&] {
     // 先搜索云开局库
-    const auto &[bookOK, step] = POSITION_INFO.searchBook();
+    const auto &[bookOK, step] = this->searchBook();
     if (bookOK == QString::fromLocal8Bit("云库出步")) {
       ui->ComputerScoreBox->setTitle(QString::fromLocal8Bit("中国象棋云库"));
       ui->ComputerScore->setStyleSheet("font:40px;color:green;");
@@ -769,4 +769,37 @@ inline void Dialog::setButtonDisabled(const bool disabled) {
 inline void Dialog::setMoving(const bool isMoving) {
   this->mOnMoving = isMoving;
   this->setButtonDisabled(isMoving);
+}
+
+// 查找云开局库
+inline tuple<QString, Step> Dialog::searchBook() {
+  QNetworkAccessManager cloudBook;
+  // 搜索开局库
+  QNetworkReply *cloudReply = cloudBook.get(
+      QNetworkRequest{"https://www.chessdb.cn/chessdb.php?action=queryall&board=" +
+                      QString::fromStdString(POSITION_INFO.fenGen())}
+  );
+  // 等待请求完成
+  QEventLoop event;
+  connect(cloudReply, &QNetworkReply::finished, &event, &QEventLoop::quit);
+  event.exec();
+  QList<QByteArray> cloudResult{cloudReply->readAll().split(',').at(0).split(':')};
+  //未联网或获取失败
+  if (cloudResult.at(0).isEmpty()) {
+    return {QString::fromLocal8Bit("象棋引擎"), {0, 0, 0, 0}};
+  }
+  //分割取走法
+  QString cloudTag = cloudResult.at(0);
+  //云库无对应招法
+  if (cloudTag != "move") {
+    return {QString::fromLocal8Bit("象棋引擎"), {0, 0, 0, 0}};
+  } else {
+    QString cloudMove = cloudResult.at(1);
+    //走棋
+    uint16_t nowRow = 9 - (cloudMove.at(1).unicode() - '0');
+    uint16_t nowCol = cloudMove.at(0).unicode() - 'a';
+    uint16_t destRow = 9 - (cloudMove.at(3).unicode() - '0');
+    uint16_t destCol = cloudMove.at(2).unicode() - 'a';
+    return {QString::fromLocal8Bit("云库出步"), {nowRow, nowCol, destRow, destCol}};
+  }
 }

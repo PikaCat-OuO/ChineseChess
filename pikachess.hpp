@@ -1,4 +1,3 @@
-#include "httprequest.h"
 #include <QReadWriteLock>
 #include <QString>
 #include <QtConcurrent/QtConcurrent>
@@ -205,8 +204,6 @@ struct PositionInfo {
   Score searchRoot(const Depth depth);
   // fen生成
   string fenGen();
-  // 搜索云库
-  tuple<QString, Step> searchBook();
 };
 
 // 定义搜索有限状态机的阶段
@@ -1878,29 +1875,6 @@ string PositionInfo::fenGen() {
   fen.erase(--end(fen));
   fen += COMPUTER_SIDE == RED ? " w" : " b";
   return fen;
-}
-
-tuple<QString, Step> PositionInfo::searchBook() {
-  HttpRequest httpReq{"112.73.74.24", 80};
-  string res{httpReq.httpGet("/chessdb.php?action=queryall&board=" + fenGen())};
-  //未联网或获取失败
-  if (res.empty()) {
-    return {QString::fromLocal8Bit("象棋引擎"), {0, 0, 0, 0}};
-  }
-  //分割取走法
-  vector<string> splitRes = httpReq.split(res, "\n");
-  vector<string> parse = httpReq.split(*--splitRes.end(), ":");
-  //云库无对应招法
-  if (parse.at(0) != "move") {
-    return {QString::fromLocal8Bit("象棋引擎"), {0, 0, 0, 0}};
-  } else {
-    //走棋
-    uint16_t nowRow = 9 - (parse.at(1).at(1) - '0');
-    uint16_t nowCol = parse.at(1).at(0) - 'a';
-    uint16_t destRow = 9 - (parse.at(1).at(3) - '0');
-    uint16_t destCol = parse.at(1).at(2) - 'a';
-    return {QString::fromLocal8Bit("云库出步"), {nowRow, nowCol, destRow, destCol}};
-  }
 }
 
 // 搜索的入口
