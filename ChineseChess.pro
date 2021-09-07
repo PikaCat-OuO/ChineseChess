@@ -34,8 +34,6 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 
 DISTFILES +=
 
-LIBS+=-lws2_32
-
 RESOURCES += \
     res.qrc
 
