@@ -776,7 +776,7 @@ inline tuple<QString, Step> Dialog::searchBook() {
   QNetworkAccessManager cloudBook;
   // 搜索开局库
   QNetworkReply *cloudReply = cloudBook.get(
-      QNetworkRequest{"https://www.chessdb.cn/chessdb.php?action=queryall&board=" +
+      QNetworkRequest{"http://www.chessdb.cn/chessdb.php?action=queryall&board=" +
                       QString::fromStdString(POSITION_INFO.fenGen())}
   );
   // 等待请求完成

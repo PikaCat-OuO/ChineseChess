@@ -1,5 +1,4 @@
 #include <QReadWriteLock>
-#include <QString>
 #include <QtConcurrent/QtConcurrent>
 // 本人懒狗，所以用这两句咯~
 #include <bits/stdc++.h>
@@ -29,8 +28,14 @@ using SpanBoard = Delta[512];
 using Step = std::tuple<Position, Position, Position, Position>;
 
 // 搜索相关
+// 已经评分的走法
+struct ValuedMove {
+  Move mMove;
+  uint64_t mValue;
+  inline bool operator<(const ValuedMove &rhs);
+};
 // 每一个局面的所有走法列表，保留128个，不可能产生超过128个走法
-using MoveList = Move[128];
+using MoveList = ValuedMove[128];
 using Score = int16_t;
 using Depth = int8_t;
 using MoveFlag = bool;
@@ -148,12 +153,12 @@ struct PositionInfo {
   inline bool isEmpty(const Position pos);
   // 该位置是否是对方的棋子
   inline bool isOppChess(const Position pos, const Side side);
-  // 该位置是否为空或为对方的棋子
-  inline bool isEmptyOrOppChess(const Position pos, const Side side);
   // 获取棋盘上的将
   Position getKING(const Side side);
   // 判断该位置为否被将军,side为走棋方
   bool isChecked(const Side side);
+  // 判断该位置为否被保护,side为走棋方
+  bool isProtected(const Position pos, const Side side);
   // 判断一个走法是否是合法的走法
   bool isLegalMove(const Move move, const Side side);
   // 检查重复走法
@@ -183,8 +188,13 @@ struct PositionInfo {
                   Score score, Depth depth, Move move);
   // 用于设置历史表、杀手表
   inline void setBestMove(const Move move, const Depth depth);
-  // 走法生成
-  Count moveGen(MoveList &moves, const Side side, const MoveFlag capture = false);
+  // 用于走法生成的便捷函数
+  inline ValuedMove toCapMove(const Position from, const Position to, const Side side);
+  inline ValuedMove toNonCapMove(const Position from, const Position to);
+  // 吃子走法生成
+  Count captureMoveGen(MoveList &moves, const Side side, const Count startCount = 0);
+  // 不吃走法生成
+  Count nonCaptureMoveGen(MoveList &moves, const Side side, const Count startCount = 0);
   // 撤销走棋
   inline void unMakeMove(const Move move, const Side side);
   // 走棋,返回是否走成功
@@ -204,32 +214,59 @@ struct PositionInfo {
   Score searchRoot(const Depth depth);
   // fen生成
   string fenGen();
+  // perft测试
+  void perft(const Depth depth, const Side side);
 };
 
 // 定义搜索有限状态机的阶段
-constexpr Phase PHASE_HASH{0};
-constexpr Phase PHASE_KILLER1{1};
-constexpr Phase PHASE_KILLER2{2};
-constexpr Phase PHASE_GEN_MOVE{3};
-constexpr Phase PHASE_ALL_MOVE{4};
-// 搜索的有限状态机
+constexpr Phase PHASE_HASH {0};
+constexpr Phase PHASE_CAPTURE_GEN {1};
+constexpr Phase PHASE_CAPTURE {2};
+constexpr Phase PHASE_KILLER1 {3};
+constexpr Phase PHASE_KILLER2 {4};
+constexpr Phase PHASE_NOT_CAPTURE_GEN {5};
+constexpr Phase PHASE_NOT_CAPTURE {6};
+// 完全搜索的有限状态机
 struct SearchMachine {
   // 位置信息
   PositionInfo &mPositionInfo;
   // 现在在第几个阶段，初始值为哈希表走法处
-  Phase mNowPhase{PHASE_HASH};
+  Phase mNowPhase {PHASE_HASH};
   // 选边标志
   Side mSide;
   // 现在正在遍历第几个走法
-  Index mNowIndex{0};
+  Index mNowIndex {0};
   // 总共有多少种走法
-  Count mTotalMoves{0};
+  Count mTotalMoves {0};
   // 所有走法的列表
-  MoveList mMoves{};
+  MoveList mMoves {};
   // 置换表走法，杀手走法1、2
   Move mHash, mKiller1, mKiller2;
   // 构造函数
   SearchMachine(PositionInfo &positionInfo, const Move hashMove, const Side side);
+  // 返回走法的函数
+  Move nextMove();
+};
+// 吃子走法标志
+constexpr MoveFlag CAPTURE {true};
+// 静态搜索的有限状态机
+struct SearchQuiescenceMachine {
+  // 位置信息
+  PositionInfo &mPositionInfo;
+  // 现在在第几个阶段，初始值为吃子走法生成处
+  Phase mNowPhase {PHASE_CAPTURE_GEN};
+  // 选边标志
+  Side mSide;
+  // 现在正在遍历第几个走法
+  Index mNowIndex {0};
+  // 总共有多少种走法
+  Count mTotalMoves {0};
+  // 所有走法的列表
+  MoveList mMoves {};
+  // 是否只生成吃子走法
+  MoveFlag mCapture {CAPTURE};
+  // 构造函数
+  SearchQuiescenceMachine(PositionInfo &positionInfo, const Side side);
   // 返回走法的函数
   Move nextMove();
 };
@@ -574,9 +611,6 @@ constexpr Score MVVLVA[16] = {0, 4, 3, 3, 2, 1, 1, 5, 0, 4, 3, 3, 2, 1, 1, 5};
 // 定义用于生成fen的map
 FenMap CHESS_FEN;
 
-// 吃子走法标志
-constexpr MoveFlag CAPTURE{true};
-
 // 空着裁剪标志
 constexpr NullFlag NO_NULL{false};
 
@@ -681,7 +715,10 @@ Depth CURRENT_DEPTH{0};
 PositionInfo POSITION_INFO{};
 
 // 最大并发数，因为现在的cpu有超线程技术，所以除以2，数值上为物理核心数
-Count MAX_CONCURRENT{static_cast<Count>(thread::hardware_concurrency() / 2)};
+Count MAX_CONCURRENT = thread::hardware_concurrency() / 2;
+
+// 用于做perft测试的节点计数器
+uint64_t NODES {0};
 
 // 用于拆分走法，取高8位
 inline Position getSrc(const Move move) { return move >> 8; }
@@ -694,9 +731,25 @@ inline Move toMove(const Position from, const Position to) {
   return from << 8 | to;
 }
 
-// 用于获取一个走法的MVVLVA值，数值越大说明越值
-inline Score getMVVLVA(const Move move) {
-  return (MVVLVA[getDest(move)] << 3) - MVVLVA[getSrc(move)];
+// 用于生成ValuedMove
+inline ValuedMove PositionInfo::toCapMove(const Position from, const Position to,
+                                          const Side side) {
+  Move move {toMove(from, to)};
+  uint64_t mvvlvaValue;
+  if (isProtected(to, side)) {
+    // 棋子被保护了
+    mvvlvaValue = (MVVLVA[this->mChessBoard[to]] << 3) - MVVLVA[this->mChessBoard[from]];
+  } else {
+    // 棋子没有被保护
+    mvvlvaValue = MVVLVA[this->mChessBoard[to]] << 3;
+  }
+  return {move, mvvlvaValue};
+}
+
+// 用于生成ValuedMove
+inline ValuedMove PositionInfo::toNonCapMove(const Position from, const Position to) {
+  Move move {toMove(from, to)};
+  return {move, this->mHistory[move]};
 }
 
 // 走法是否符合帅(将)的步长
@@ -752,6 +805,11 @@ inline bool isSameColumn(const Move move) {
 
 // 用于计分的翻转
 inline Position flipPosition(const Position pos) { return 254 - pos; }
+
+// ValuedMove的比较函数，用于比较两个走法分值的大小
+inline bool ValuedMove::operator<(const ValuedMove &rhs) {
+  return this->mValue > rhs.mValue;
+}
 
 // 重置置换表与深度信息，清空默认最佳走法
 inline void resetCache(PositionInfo &positionInfo) {
@@ -843,11 +901,6 @@ inline bool PositionInfo::isOppChess(const Position pos, const Side side) {
   return this->mChessBoard[pos] and getChessSide(pos) not_eq side;
 }
 
-// 该位置是否为空或为对方的棋子
-inline bool PositionInfo::isEmptyOrOppChess(const Position pos, const Side side) {
-  return isEmpty(pos) or getChessSide(pos) not_eq side;
-}
-
 // 获得对手的选边
 inline Side getOppSide(const Side side) { return side ^ 0b1000; }
 
@@ -902,8 +955,7 @@ bool PositionInfo::isChecked(const Side side) {
   // 判断是否被兵将军
   for (const auto &delta : side == RED ? PROMOTED_RED_PAWN_DELTA : PROMOTED_BLACK_PAWN_DELTA) {
     // 检查对应位置是否在棋盘内,对应的位置上是否有棋子,看一下这个棋子是不是对方的兵
-    if (this->mChessBoard[pos + delta] and getChessSide(pos + delta) not_eq side and
-        this->mChessBoard[pos + delta] == toSideChess(PAWN, oppSideTag)) {
+    if (this->mChessBoard[pos + delta] == toSideChess(PAWN, oppSideTag)) {
       return true;
     }
   }
@@ -916,8 +968,7 @@ bool PositionInfo::isChecked(const Side side) {
       // 遍历每一个马步
       for (const auto &delta : CHECK_KNIGHT_DELTA[index]) {
         // 检查对应位置是否在棋盘内,对应的位置上是否有棋子,是否被蹩马腿,看一下这个棋子是不是对方的马
-        if (this->mChessBoard[pos + delta] and getChessSide(pos + delta) not_eq side and
-            this->mChessBoard[pos + delta] == toSideChess(KNIGHT, oppSideTag)) {
+        if (this->mChessBoard[pos + delta] == toSideChess(KNIGHT, oppSideTag)) {
           return true;
         }
       }
@@ -926,12 +977,76 @@ bool PositionInfo::isChecked(const Side side) {
 
   // 判断是否被车(炮)将军，包括将帅对脸
   for (const auto &delta : LINE_CHESS_DELTA) {
-    Position cur{static_cast<Position>(pos + delta)};
+    Position cur = pos + delta;
     // 检查车(将)
     while (IN_BOARD[cur]) {
       if (this->mChessBoard[cur]) {
         if (this->mChessBoard[cur] == toSideChess(ROOK, oppSideTag) or
             this->mChessBoard[cur] == toSideChess(KING, oppSideTag)) {
+          return true;
+        }
+        cur += delta;
+        break;
+      }
+      cur += delta;
+    }
+    // 检查炮
+    while (IN_BOARD[cur]) {
+      if (this->mChessBoard[cur]) {
+        if (this->mChessBoard[cur] == toSideChess(CANNON, oppSideTag)) {
+          return true;
+        }
+        break;
+      }
+      cur += delta;
+    }
+  }
+  return false;
+}
+
+// 判断该位置为否被保护,side为走棋方
+bool PositionInfo::isProtected(const Position pos, const Side side) {
+  // 获得对方的sideTag
+  Side oppSideTag{getOppSide(side)};
+
+  // 判断是否被兵保护
+  for (const auto &delta : side == RED ? PROMOTED_RED_PAWN_DELTA : PROMOTED_BLACK_PAWN_DELTA) {
+    // 检查对应位置是否在棋盘内,对应的位置上是否有棋子,看一下这个棋子是不是对方的兵
+    if (this->mChessBoard[pos + delta] == toSideChess(PAWN, oppSideTag)) {
+      return true;
+    }
+  }
+
+  // 判断是否被将保护
+  for (const auto &delta : KING_DELTA) {
+    // 检查对应位置是否在棋盘内,对应的位置上是否有棋子,看一下这个棋子是不是对方的将
+    if (this->mChessBoard[pos + delta] == toSideChess(KING, oppSideTag)) {
+      return true;
+    }
+  }
+
+  // 判断是否被马保护
+  for (Index index{0}; index < 4; ++index) {
+    // 先看马腿有没有在棋盘里，并且有没有憋马腿
+    // 马腿超出范围或者蹩马腿了就直接下一轮，避免在下一个for循环里面判断两次
+    if (IN_BOARD[pos + CHECK_KNIGHT_PIN[index]] and isEmpty(pos + CHECK_KNIGHT_PIN[index])) {
+      // 遍历每一个马步
+      for (const auto &delta : CHECK_KNIGHT_DELTA[index]) {
+        // 检查对应位置是否在棋盘内,对应的位置上是否有棋子,是否被蹩马腿,看一下这个棋子是不是对方的马
+        if (this->mChessBoard[pos + delta] == toSideChess(KNIGHT, oppSideTag)) {
+          return true;
+        }
+      }
+    }
+  }
+
+  // 判断是否被车(炮)保护
+  for (const auto &delta : LINE_CHESS_DELTA) {
+    Position cur = pos + delta;
+    // 检查车
+    while (IN_BOARD[cur]) {
+      if (this->mChessBoard[cur]) {
+        if (this->mChessBoard[cur] == toSideChess(ROOK, oppSideTag)) {
           return true;
         }
         cur += delta;
@@ -966,7 +1081,7 @@ bool PositionInfo::isLegalMove(const Move move, const Side side) {
 
   // 定义要用到的变量
   Delta delta;
-  Chess chess{static_cast<Chess>(this->mChessBoard[src] - side)};
+  Chess chess = this->mChessBoard[src] - side;
   // 根据情况判断走法是否合法
   switch (chess) {
     // 是否在九宫内，是否符合将的步长
@@ -1320,13 +1435,13 @@ inline void PositionInfo::setBestMove(const Move move, const Depth depth) {
     this->mKiller[this->mDistance][1] = this->mKiller[this->mDistance][0];
     this->mKiller[this->mDistance][0] = move;
   }
+  // 不是吃子走法才保存到历史表
   this->mHistory[move] += depth * depth;
 }
 
-// 走法生成
-Count PositionInfo::moveGen(MoveList &moves, const Side side,
-                            const MoveFlag capture) {
-  Count totalMoves{0};
+// 吃子走法生成
+Count PositionInfo::captureMoveGen(MoveList &moves, const Side side, const Count startCount) {
+  Count totalMoves{startCount};
   // 遍历棋盘
   for (Position start{51}; start < 204; start += 16) {
     for (Position pos{start}; pos < start + 9; ++pos) {
@@ -1336,12 +1451,9 @@ Count PositionInfo::moveGen(MoveList &moves, const Side side,
         // 如果是将
         case KING:
           for (const auto &delta : KING_DELTA) {
-            // 对于每一个步长，查看上面有没有自己的棋子
-            if (IN_SQRT[pos + delta] and
-                (capture ? isOppChess(pos + delta, side)
-                         : isEmptyOrOppChess(pos + delta, side))) {
-              // 没有棋子或者不是自己的棋子
-              moves[totalMoves++] = toMove(pos, pos + delta);
+            // 对于每一个步长，查看上面是不是对方的棋子
+            if (IN_SQRT[pos + delta] and isOppChess(pos + delta, side)) {
+              moves[totalMoves++] = toCapMove(pos, pos + delta, side);
             }
           }
           break;
@@ -1349,12 +1461,10 @@ Count PositionInfo::moveGen(MoveList &moves, const Side side,
         // 如果是士
         case ADVISOR:
           for (const auto &delta : ADVISOR_DELTA) {
-            // 对于每一个步长，查看上面有没有自己的棋子
-            if (IN_SQRT[pos + delta] and
-                (capture ? isOppChess(pos + delta, side)
-                         : isEmptyOrOppChess(pos + delta, side))) {
+            // 对于每一个步长，查看上面是不是对方的棋子
+            if (IN_SQRT[pos + delta] and isOppChess(pos + delta, side)) {
               // 没有棋子或者不是自己的棋子
-              moves[totalMoves++] = toMove(pos, pos + delta);
+              moves[totalMoves++] = toCapMove(pos, pos + delta, side);
             }
           }
           break;
@@ -1364,12 +1474,11 @@ Count PositionInfo::moveGen(MoveList &moves, const Side side,
           for (Index index{0}; index < 4; ++index) {
             Delta delta = BISHOP_DELTA[index];
             Delta pin = BISHOP_PIN[index];
-            // 对于每一个步长，先看是否在自己的半边内，有没有塞住象眼，再查看上面有没有自己的棋子
+            // 对于每一个步长，先看是否在自己的半边内，有没有塞住象眼，再查看上面是不是对方的棋子
             if (isMyHalf(pos + delta, side) and isEmpty(pos + pin) and
-                (capture ? isOppChess(pos + delta, side)
-                         : isEmptyOrOppChess(pos + delta, side))) {
+                isOppChess(pos + delta, side)) {
               // 没有棋子或者不是自己的棋子
-              moves[totalMoves++] = toMove(pos, pos + delta);
+              moves[totalMoves++] = toCapMove(pos, pos + delta, side);
             }
           }
           break;
@@ -1381,12 +1490,10 @@ Count PositionInfo::moveGen(MoveList &moves, const Side side,
             // 马腿超出范围或者蹩马腿了就直接下一轮，避免在下一个for循环里面判断两次
             if (IN_BOARD[pos + KNIGHT_PIN[index]] and isEmpty(pos + KNIGHT_PIN[index])) {
               for (const auto &delta : KNIGHT_DELTA[index]) {
-                // 对于每一个步长，先看是否在棋盘内，再查看上面有没有自己的棋子
-                if (IN_BOARD[pos + delta] and
-                    (capture ? isOppChess(pos + delta, side)
-                             : isEmptyOrOppChess(pos + delta, side))) {
+                // 对于每一个步长，先看是否在棋盘内，再查看上面是不是对方的棋子
+                if (IN_BOARD[pos + delta] and isOppChess(pos + delta, side)) {
                   // 没有棋子或者不是自己的棋子
-                  moves[totalMoves++] = toMove(pos, pos + delta);
+                  moves[totalMoves++] = toCapMove(pos, pos + delta, side);
                 }
               }
             }
@@ -1398,22 +1505,18 @@ Count PositionInfo::moveGen(MoveList &moves, const Side side,
           if (isMyHalf(pos, side)) {
             // 如果没过河
             Delta delta{getChessSide(pos) == RED ? RED_PAWN_DELTA : BLACK_PAWN_DELTA};
-            // 检查所到之处是否在棋盘内，是否被自己的棋子堵住了
-            if (IN_BOARD[pos + delta] and
-                (capture ? isOppChess(pos + delta, side)
-                         : isEmptyOrOppChess(pos + delta, side))) {
-              moves[totalMoves++] = toMove(pos, pos + delta);
+            // 检查所到之处是否在棋盘内，查看上面是不是对方的棋子
+            if (IN_BOARD[pos + delta] and isOppChess(pos + delta, side)) {
+              moves[totalMoves++] = toCapMove(pos, pos + delta, side);
             }
           } else {
             // 过河了
             for (const auto &delta : getChessSide(pos) == RED
                                          ? PROMOTED_RED_PAWN_DELTA
                                          : PROMOTED_BLACK_PAWN_DELTA) {
-              // 检查所到之处是否在棋盘内，是否被自己的棋子堵住了
-              if (IN_BOARD[pos + delta] and
-                  (capture ? isOppChess(pos + delta, side)
-                           : isEmptyOrOppChess(pos + delta, side))) {
-                moves[totalMoves++] = toMove(pos, pos + delta);
+              // 检查所到之处是否在棋盘内，查看上面是不是对方的棋子
+              if (IN_BOARD[pos + delta] and isOppChess(pos + delta, side)) {
+                moves[totalMoves++] = toCapMove(pos, pos + delta, side);
               }
             }
           }
@@ -1422,17 +1525,12 @@ Count PositionInfo::moveGen(MoveList &moves, const Side side,
         // 如果是车
         case ROOK:
           for (const auto &delta : LINE_CHESS_DELTA) {
-            Position cur{static_cast<Position>(pos + delta)};
+            Position cur = pos + delta;
             // 如果该位置为空
-            while (IN_BOARD[cur] and isEmpty(cur)) {
-              if (not capture) {
-                moves[totalMoves++] = toMove(pos, cur);
-              }
-              cur += delta;
-            }
+            while (IN_BOARD[cur] and isEmpty(cur)) cur += delta;
             // 可能超出棋盘或者碰到了一个棋子
             if (IN_BOARD[cur] and getChessSide(cur) not_eq side) {
-              moves[totalMoves++] = toMove(pos, cur);
+              moves[totalMoves++] = toCapMove(pos, cur, side);
             }
           }
           break;
@@ -1440,14 +1538,9 @@ Count PositionInfo::moveGen(MoveList &moves, const Side side,
         // 如果是炮
         case CANNON:
           for (const auto &delta : LINE_CHESS_DELTA) {
-            Position cur{static_cast<Position>(pos + delta)};
+            Position cur = pos + delta;
             // 如果该位置为空
-            while (IN_BOARD[cur] and isEmpty(cur)) {
-              if (not capture) {
-                moves[totalMoves++] = toMove(pos, cur);
-              }
-              cur += delta;
-            }
+            while (IN_BOARD[cur] and isEmpty(cur)) cur += delta;
             // 碰到了第一个棋子或者超出棋盘
             cur += delta;
             while (IN_BOARD[cur] and isEmpty(cur)) {
@@ -1455,7 +1548,107 @@ Count PositionInfo::moveGen(MoveList &moves, const Side side,
             }
             // 碰到了第二个棋子或者超出棋盘
             if (IN_BOARD[cur] and getChessSide(cur) not_eq side) {
-              moves[totalMoves++] = toMove(pos, cur);
+              moves[totalMoves++] = toCapMove(pos, cur, side);
+            }
+          }
+          break;
+        }
+      }
+    }
+  }
+  return totalMoves;
+}
+
+// 不吃子走法生成
+Count PositionInfo::nonCaptureMoveGen(MoveList &moves, const Side side, const Count startCount) {
+  Count totalMoves{startCount};
+  // 遍历棋盘
+  for (Position start{51}; start < 204; start += 16) {
+    for (Position pos{start}; pos < start + 9; ++pos) {
+      // 找到自己的棋子
+      if (this->mChessBoard[pos] and getChessSide(pos) == side) {
+        switch (this->mChessBoard[pos] - side) {
+        // 如果是将
+        case KING:
+          for (const auto &delta : KING_DELTA) {
+            // 对于每一个步长，查看上面是不是空的
+            if (IN_SQRT[pos + delta] and isEmpty(pos + delta)) {
+              moves[totalMoves++] = toNonCapMove(pos, pos + delta);
+            }
+          }
+          break;
+
+        // 如果是士
+        case ADVISOR:
+          for (const auto &delta : ADVISOR_DELTA) {
+            // 对于每一个步长，查看上面是不是空的
+            if (IN_SQRT[pos + delta] and isEmpty(pos + delta)) {
+              moves[totalMoves++] = toNonCapMove(pos, pos + delta);
+            }
+          }
+          break;
+
+        // 如果是象
+        case BISHOP:
+          for (Index index{0}; index < 4; ++index) {
+            Delta delta = BISHOP_DELTA[index];
+            Delta pin = BISHOP_PIN[index];
+            // 对于每一个步长，先看是否在自己的半边内，有没有塞住象眼，再查看上面是不是空的
+            if (isMyHalf(pos + delta, side) and isEmpty(pos + pin) and
+                isEmpty(pos + delta)) {
+              moves[totalMoves++] = toNonCapMove(pos, pos + delta);
+            }
+          }
+          break;
+
+        // 如果是马
+        case KNIGHT:
+          for (Index index{0}; index < 4; ++index) {
+            // 先看马腿有没有在棋盘里，并且有没有憋马腿
+            // 马腿超出范围或者蹩马腿了就直接下一轮，避免在下一个for循环里面判断两次
+            if (IN_BOARD[pos + KNIGHT_PIN[index]] and isEmpty(pos + KNIGHT_PIN[index])) {
+              for (const auto &delta : KNIGHT_DELTA[index]) {
+                // 对于每一个步长，先看是否在棋盘内，再查看上面是不是空的
+                if (IN_BOARD[pos + delta] and isEmpty(pos + delta)) {
+                  // 没有棋子或者不是自己的棋子
+                  moves[totalMoves++] = toNonCapMove(pos, pos + delta);
+                }
+              }
+            }
+          }
+          break;
+
+        // 如果是兵
+        case PAWN:
+          if (isMyHalf(pos, side)) {
+            // 如果没过河
+            Delta delta{getChessSide(pos) == RED ? RED_PAWN_DELTA : BLACK_PAWN_DELTA};
+            // 检查所到之处是否在棋盘内，查看上面是不是空的
+            if (IN_BOARD[pos + delta] and isEmpty(pos + delta)) {
+              moves[totalMoves++] = toNonCapMove(pos, pos + delta);
+            }
+          } else {
+            // 过河了
+            for (const auto &delta : getChessSide(pos) == RED
+                                         ? PROMOTED_RED_PAWN_DELTA
+                                         : PROMOTED_BLACK_PAWN_DELTA) {
+              // 检查所到之处是否在棋盘内，查看上面是不是空的
+              if (IN_BOARD[pos + delta] and isEmpty(pos + delta)) {
+                moves[totalMoves++] = toNonCapMove(pos, pos + delta);
+              }
+            }
+          }
+          break;
+
+        // 如果是车和炮
+        case CANNON:
+        case ROOK:
+          for (const auto &delta : LINE_CHESS_DELTA) {
+            Position cur = pos + delta;
+            // 如果该位置为空
+            while (IN_BOARD[cur] and isEmpty(cur)) {
+              moves[totalMoves++] = toNonCapMove(pos, cur);
+              cur += delta;
             }
           }
           break;
@@ -1557,12 +1750,27 @@ Move SearchMachine::nextMove() {
   switch (mNowPhase) {
   case PHASE_HASH:
     // 指明下一个阶段
-    this->mNowPhase = PHASE_KILLER1;
+    this->mNowPhase = PHASE_CAPTURE_GEN;
     // 确保这一个置换表走法不是默认走法
     if (this->mHash not_eq INVALID_MOVE) {
       return this->mHash;
     }
     // 否则就下一步
+    [[fallthrough]];
+  case PHASE_CAPTURE_GEN:
+    // 指明下一个阶段
+    this->mNowPhase = PHASE_CAPTURE;
+    // 生成吃子走法，使用MVVLVA对其进行排序
+    this->mTotalMoves = this->mPositionInfo.captureMoveGen(this->mMoves, this->mSide, 0);
+    sort(begin(this->mMoves), begin(this->mMoves) + this->mTotalMoves);
+    // 直接下一步
+    [[fallthrough]];
+  case PHASE_CAPTURE:
+    // 遍历走法，逐个返回
+    while (this->mNowIndex < this->mTotalMoves) {
+      return this->mMoves[mNowIndex++].mMove;
+    }
+    // 如果没有了就下一步
     [[fallthrough]];
   case PHASE_KILLER1:
     // 指明下一个阶段
@@ -1577,7 +1785,7 @@ Move SearchMachine::nextMove() {
     [[fallthrough]];
   case PHASE_KILLER2:
     // 指明下一个阶段
-    this->mNowPhase = PHASE_GEN_MOVE;
+    this->mNowPhase = PHASE_NOT_CAPTURE_GEN;
     // 确保这一个杀手走法不是默认走法，不是置换表走法
     if (this->mKiller2 not_eq INVALID_MOVE and
         this->mKiller2 not_eq this->mHash and
@@ -1586,21 +1794,19 @@ Move SearchMachine::nextMove() {
     }
     // 否则就下一步
     [[fallthrough]];
-  case PHASE_GEN_MOVE:
+  case PHASE_NOT_CAPTURE_GEN:
     // 指明下一个阶段
-    this->mNowPhase = PHASE_ALL_MOVE;
-    // 生成所有的走法并使用历史表对其进行排序
-    this->mTotalMoves = this->mPositionInfo.moveGen(this->mMoves, this->mSide);
-    sort(begin(this->mMoves), begin(this->mMoves) + this->mTotalMoves,
-         [&](const Move &rhs, const Move &lhs) {
-           return this->mPositionInfo.mHistory[lhs] < this->mPositionInfo.mHistory[rhs];
-         });
+    this->mNowPhase = PHASE_NOT_CAPTURE;
+    // 生成非吃子的走法并使用历史表对其进行排序
+    this->mTotalMoves = this->mPositionInfo.nonCaptureMoveGen(this->mMoves,
+                                                              this->mSide, this->mNowIndex);
+    sort(begin(this->mMoves) + this->mNowIndex, begin(this->mMoves) + this->mTotalMoves);
     // 直接下一步
     [[fallthrough]];
-  case PHASE_ALL_MOVE:
+  case PHASE_NOT_CAPTURE:
     // 遍历走法，逐个检查并返回
     while (this->mNowIndex < this->mTotalMoves) {
-      Move move{this->mMoves[mNowIndex++]};
+      Move move{this->mMoves[mNowIndex++].mMove};
       if (move not_eq this->mHash and move not_eq this->mKiller1 and
           move not_eq this->mKiller2) {
         return move;
@@ -1613,28 +1819,67 @@ Move SearchMachine::nextMove() {
   }
 }
 
+SearchQuiescenceMachine::SearchQuiescenceMachine(PositionInfo &positionInfo, const Side side)
+    : mPositionInfo {positionInfo}, mSide {side} { }
+
+Move SearchQuiescenceMachine::nextMove() {
+  switch (mNowPhase) {
+  case PHASE_CAPTURE_GEN:
+    // 指明下一个阶段
+    this->mNowPhase = PHASE_CAPTURE;
+    // 生成吃子走法，使用MVVLVA对其进行排序
+    this->mTotalMoves = this->mPositionInfo.captureMoveGen(this->mMoves, this->mSide, 0);
+    sort(begin(this->mMoves), begin(this->mMoves) + this->mTotalMoves);
+    // 直接下一步
+    [[fallthrough]];
+  case PHASE_CAPTURE:
+    // 遍历走法，逐个返回
+    while (this->mNowIndex < this->mTotalMoves) {
+      return this->mMoves[mNowIndex++].mMove;
+    }
+    // 如果没有了就下一步
+    [[fallthrough]];
+  case PHASE_NOT_CAPTURE_GEN:
+    // 如果只生成吃子走法，直接返回即可
+    if (this->mCapture) return INVALID_MOVE;
+    // 指明下一个阶段
+    this->mNowPhase = PHASE_NOT_CAPTURE;
+    // 生成非吃子的走法并使用历史表对其进行排序
+    this->mTotalMoves = this->mPositionInfo.nonCaptureMoveGen(this->mMoves,
+                                                              this->mSide, this->mNowIndex);
+    sort(begin(this->mMoves) + this->mNowIndex, begin(this->mMoves) + this->mTotalMoves);
+    // 直接下一步
+    [[fallthrough]];
+  case PHASE_NOT_CAPTURE:
+    // 遍历走法，逐个返回
+    while (this->mNowIndex < this->mTotalMoves) {
+      return this->mMoves[mNowIndex++].mMove;
+    }
+    // 如果没有了就直接返回
+    [[fallthrough]];
+  default:
+    return INVALID_MOVE;
+  }
+}
+
 // 静态搜索
-Score PositionInfo::searchQuiescence(Score alpha, const Score beta,
-                                     const Side side) {
+Score PositionInfo::searchQuiescence(Score alpha, const Score beta, const Side side) {
   // 先检查重复局面，获得重复局面标志
   RepeatFlag repeatFlag{getRepeatFlag()};
   if (repeatFlag) {
     // 如果有重复的情况，直接返回分数
     return scoreRepeatFlag(repeatFlag);
   }
-  MoveList moves;
-  Count totalMoves;
-  Score bestScore{LOSS_SCORE};
+
+  Move move;
+  Score bestScore {LOSS_SCORE};
+  // 静态搜索的有限状态机
+  SearchQuiescenceMachine search {*this, side};
   if (this->mHistoryMove[this->mHistorySize - 1].mCheck) {
-    // 如果被将军了,生成全部走法
-    totalMoves = moveGen(moves, side);
-    // 按照历史表排序
-    sort(begin(moves), begin(moves) + totalMoves,
-         [&](const Move &rhs, const Move &lhs) {
-           return this->mHistory[lhs] < this->mHistory[rhs];
-         });
+    // 如果被将军了，生成所有着法
+    search.mCapture = false;
   } else {
-    // 如果不被将军，先做局面评价
+    // 如果不被将军，先做局面评价，如果局面评价没有截断，再生成吃子走法
     Score tryScore = evaluate(side);
     if (tryScore > bestScore) {
       bestScore = tryScore;
@@ -1647,23 +1892,14 @@ Score PositionInfo::searchQuiescence(Score alpha, const Score beta,
         alpha = tryScore;
       }
     }
-
-    // 如果局面评价没有截断，再生成吃子走法
-    totalMoves = moveGen(moves, side, CAPTURE);
-    // 根据MVVLVA对走法进行排序
-    sort(begin(moves), begin(moves) + totalMoves,
-         [&](const Move &rhs, const Move &lhs) {
-           return getMVVLVA(lhs) < getMVVLVA(rhs);
-         });
   }
 
   // 遍历所有走法
-  for (Index index{0}; index < totalMoves; ++index) {
-    Move move{moves[index]};
+  while ((move = search.nextMove())) {
     // 如果被将军了就不搜索这一步
     if (makeMove(move, side)) {
       // 不然就获得评分并更新最好的分数
-      Score tryScore{static_cast<Score>(-searchQuiescence(-beta, -alpha, getOppSide(side)))};
+      Score tryScore = -searchQuiescence(-beta, -alpha, getOppSide(side));
       // 撤销走棋
       unMakeMove(move, side);
       if (tryScore > bestScore) {
@@ -1702,7 +1938,7 @@ Score PositionInfo::searchFull(Score alpha, const Score beta, const Depth depth,
   }
 
   // 先检查重复局面，获得重复局面标志
-  RepeatFlag repeatFlag{getRepeatFlag()};
+  RepeatFlag repeatFlag {getRepeatFlag()};
   if (repeatFlag) {
     // 如果有重复的情况，直接返回分数
     return scoreRepeatFlag(repeatFlag);
@@ -1711,34 +1947,35 @@ Score PositionInfo::searchFull(Score alpha, const Score beta, const Depth depth,
   // 当前走法
   Move move;
   // 尝试置换表裁剪，并得到置换表走法
-  Score tryScore{probeHash(alpha, beta, depth, move)};
+  Score tryScore {probeHash(alpha, beta, depth, move)};
   if (tryScore > LOSS_SCORE) {
     // 置换表裁剪成功
     return tryScore;
   }
 
-  /* 进行空步裁剪，不能连着走两步空步，被将军时不能走空步，残局不能走空步，不然会有特别大的风险
+  /* 进行空步裁剪，不能连着走两步空步，被将军时不能走空步
+     残局走空步，需要进行检验，不然会有特别大的风险
      根节点的Beta值是"MATE_SCORE"，所以不可能发生空步裁剪 */
-  if (nullOk and not this->mHistoryMove[this->mHistorySize - 1].mCheck and
-      isNotEndgame(side)) {
+  if (nullOk and not this->mHistoryMove[this->mHistorySize - 1].mCheck) {
       // 走一步空步
       makeNullMove();
       // 获得评分，深度减掉空着裁剪推荐的两层，然后本身走了一步空步，还要再减掉一层
       tryScore = -searchFull(-beta, 1 - beta, depth - 3, getOppSide(side), NO_NULL);
       // 撤销空步
       unMakeNullMove();
-      // 如果足够好就可以发生截断
-      if (tryScore >= beta) {
+      // 如果足够好就可以发生截断，残局阶段要注意进行校验
+      if (tryScore >= beta and (isNotEndgame(side) or
+                                searchFull(beta - 1, beta, depth - 2, NO_NULL) >= beta)) {
         return tryScore;
       }
   }
 
   // 搜索有限状态机
-  SearchMachine search{*this, move, side};
+  SearchMachine search {*this, move, side};
   // 最佳走法的标志
-  HashFlag bestMoveHashFlag{HASH_ALPHA};
-  Score bestScore{LOSS_SCORE};
-  Move bestMove{INVALID_MOVE};
+  HashFlag bestMoveHashFlag {HASH_ALPHA};
+  Score bestScore {LOSS_SCORE};
+  Move bestMove {INVALID_MOVE};
   // 遍历所有走法
   while ((move = search.nextMove())) {
     // 如果被将军了就不搜索这一步
@@ -1793,8 +2030,8 @@ Score PositionInfo::searchFull(Score alpha, const Score beta, const Depth depth,
   hashItem.mHashItemLock.lockForWrite();
   recordHash(hashItem, bestMoveHashFlag, bestScore, depth, bestMove);
   hashItem.mHashItemLock.unlock();
-  if (bestMove not_eq INVALID_MOVE) {
-    // 如果不是Alpha走法，就将最佳走法保存到历史表、杀手表、置换表
+  if (bestMove not_eq INVALID_MOVE and isEmpty(getDest(bestMove))) {
+    // 如果不是Alpha走法，并且不是吃子走法，就将最佳走法保存到历史表、杀手表
     setBestMove(bestMove, depth);
   }
   return bestScore;
@@ -1840,7 +2077,10 @@ Score PositionInfo::searchRoot(const Depth depth) {
   hashItem.mHashItemLock.lockForWrite();
   recordHash(hashItem, HASH_PV, bestScore, depth, this->mBestMove);
   hashItem.mHashItemLock.unlock();
-  setBestMove(this->mBestMove, depth);
+  // 如果不是吃子着法，就保存到历史表和杀手着法表
+  if (isEmpty(getDest(this->mBestMove))){
+    setBestMove(this->mBestMove, depth);
+  }
   return bestScore;
 }
 
@@ -1875,6 +2115,33 @@ string PositionInfo::fenGen() {
   fen.erase(--end(fen));
   fen += COMPUTER_SIDE == RED ? " w" : " b";
   return fen;
+}
+
+// perft测试函数
+void PositionInfo::perft(const Depth depth, const Side side) {
+  if (depth == 0) { ++NODES; return; }
+  // 当前走法
+  Move move;
+  // 搜索有限状态机
+  SearchMachine search{*this, INVALID_MOVE, side};
+  // 遍历所有走法
+  while ((move = search.nextMove())) {
+    // 如果被将军了就不搜索这一步
+    if (makeMove(move, side)) {
+      perft(depth - 1, getOppSide(side));
+      // 撤销走棋
+      unMakeMove(move, side);
+    }
+  }
+}
+
+// 执行perft测试，输出结果
+void doPerft() {
+  for (Count i {1}; i < 6; ++i) {
+    NODES = 0;
+    POSITION_INFO.perft(i, COMPUTER_SIDE);
+    qDebug() << "depth:" << i << " nodes:" << NODES;
+  }
 }
 
 // 搜索的入口
