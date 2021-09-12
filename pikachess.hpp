@@ -209,6 +209,8 @@ struct PositionInfo {
   Score searchRoot(const Depth depth);
   // fen生成
   string fenGen();
+  // perft测试
+  void perft(const Depth depth, const Side side);
 };
 
 // 定义搜索有限状态机的阶段
@@ -1505,7 +1507,7 @@ Count PositionInfo::moveGen(MoveList &moves, const Side side, const Count startC
               cur += delta;
             }
             // 可能超出棋盘或者碰到了一个棋子
-            if (IN_BOARD[cur] and getChessSide(cur) not_eq side) {
+            if (capture and IN_BOARD[cur] and getChessSide(cur) not_eq side) {
               moves[totalMoves++] = toMove(pos, cur);
             }
           }
@@ -1528,7 +1530,7 @@ Count PositionInfo::moveGen(MoveList &moves, const Side side, const Count startC
               cur += delta;
             }
             // 碰到了第二个棋子或者超出棋盘
-            if (IN_BOARD[cur] and getChessSide(cur) not_eq side) {
+            if (capture and IN_BOARD[cur] and getChessSide(cur) not_eq side) {
               moves[totalMoves++] = toMove(pos, cur);
             }
           }
@@ -1992,6 +1994,35 @@ string PositionInfo::fenGen() {
   return fen;
 }
 
+uint64_t NODES {0};
+
+// perft测试函数
+void PositionInfo::perft(const Depth depth, const Side side) {
+  if (depth == 0) { ++NODES; return; }
+  // 当前走法
+  Move move;
+  // 搜索有限状态机
+  SearchMachine search{*this, INVALID_MOVE, side};
+  // 遍历所有走法
+  while ((move = search.nextMove())) {
+    // 如果被将军了就不搜索这一步
+    if (makeMove(move, side)) {
+      perft(depth - 1, getOppSide(side));
+      // 撤销走棋
+      unMakeMove(move, side);
+    }
+  }
+}
+
+// 执行perft测试，输出结果
+void doPerft() {
+  for (Count i {1}; i < 6; ++i) {
+    NODES = 0;
+    POSITION_INFO.perft(i, COMPUTER_SIDE);
+    qDebug() << "depth:" << i << " nodes:" << NODES;
+  }
+}
+
 // 搜索的入口
 Score searchMain() {
   // 重置信息
@@ -2023,7 +2054,6 @@ Score searchMain() {
     for (auto &task : tasks) {
       task.waitForFinished();
     }
-    qDebug() << CURRENT_DEPTH << ":" << clock() - startTimeStamp;
     ++CURRENT_DEPTH;
     // 如果赢了或者输了或者产生了长将局面就不用再往下搜索了
     if (bestScore < LOST_SCORE or bestScore > WIN_SCORE) {
