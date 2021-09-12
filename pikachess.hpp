@@ -212,10 +212,10 @@ struct PositionInfo {
 
 // 定义搜索有限状态机的阶段
 constexpr Phase PHASE_HASH {0};
-constexpr Phase PHASE_KILLER1 {1};
-constexpr Phase PHASE_KILLER2 {2};
-constexpr Phase PHASE_CAPTURE_GEN {3};
-constexpr Phase PHASE_CAPTURE {4};
+constexpr Phase PHASE_CAPTURE_GEN {1};
+constexpr Phase PHASE_CAPTURE {2};
+constexpr Phase PHASE_KILLER1 {3};
+constexpr Phase PHASE_KILLER2 {4};
 constexpr Phase PHASE_NOT_CAPTURE_GEN {5};
 constexpr Phase PHASE_NOT_CAPTURE {6};
 // 完全搜索的有限状态机
@@ -1414,9 +1414,7 @@ inline void PositionInfo::setBestMove(const Move move, const Depth depth) {
     this->mKiller[this->mDistance][0] = move;
   }
   // 不是吃子走法才保存到历史表
-  if (isEmpty(getDest(move))) {
-    this->mHistory[move] += depth * depth;
-  }
+  this->mHistory[move] += depth * depth;
 }
 
 // 走法生成
@@ -1653,32 +1651,10 @@ Move SearchMachine::nextMove() {
   switch (mNowPhase) {
   case PHASE_HASH:
     // 指明下一个阶段
-    this->mNowPhase = PHASE_KILLER1;
+    this->mNowPhase = PHASE_CAPTURE_GEN;
     // 确保这一个置换表走法不是默认走法
     if (this->mHash not_eq INVALID_MOVE) {
       return this->mHash;
-    }
-    // 否则就下一步
-    [[fallthrough]];
-  case PHASE_KILLER1:
-    // 指明下一个阶段
-    this->mNowPhase = PHASE_KILLER2;
-    // 确保这一个杀手走法不是默认走法，不是置换表走法，并且要确认是否是合法的步
-    if (this->mKiller1 not_eq INVALID_MOVE and
-        this->mKiller1 not_eq this->mHash and
-        this->mPositionInfo.isLegalMove(this->mKiller1, this->mSide)) {
-      return this->mKiller1;
-    }
-    // 否则就下一步
-    [[fallthrough]];
-  case PHASE_KILLER2:
-    // 指明下一个阶段
-    this->mNowPhase = PHASE_CAPTURE_GEN;
-    // 确保这一个杀手走法不是默认走法，不是置换表走法
-    if (this->mKiller2 not_eq INVALID_MOVE and
-        this->mKiller2 not_eq this->mHash and
-        this->mPositionInfo.isLegalMove(this->mKiller2, this->mSide)) {
-      return this->mKiller2;
     }
     // 否则就下一步
     [[fallthrough]];
@@ -1695,15 +1671,33 @@ Move SearchMachine::nextMove() {
     // 直接下一步
     [[fallthrough]];
   case PHASE_CAPTURE:
-    // 遍历走法，逐个检查并返回
+    // 遍历走法，逐个返回
     while (this->mNowIndex < this->mTotalMoves) {
-      Move move{this->mMoves[mNowIndex++]};
-      if (move not_eq this->mHash and move not_eq this->mKiller1 and
-          move not_eq this->mKiller2) {
-        return move;
-      }
+      return this->mMoves[mNowIndex++];
     }
     // 如果没有了就下一步
+    [[fallthrough]];
+  case PHASE_KILLER1:
+    // 指明下一个阶段
+    this->mNowPhase = PHASE_KILLER2;
+    // 确保这一个杀手走法不是默认走法，不是置换表走法，并且要确认是否是合法的步
+    if (this->mKiller1 not_eq INVALID_MOVE and
+        this->mKiller1 not_eq this->mHash and
+        this->mPositionInfo.isLegalMove(this->mKiller1, this->mSide)) {
+      return this->mKiller1;
+    }
+    // 否则就下一步
+    [[fallthrough]];
+  case PHASE_KILLER2:
+    // 指明下一个阶段
+    this->mNowPhase = PHASE_NOT_CAPTURE_GEN;
+    // 确保这一个杀手走法不是默认走法，不是置换表走法
+    if (this->mKiller2 not_eq INVALID_MOVE and
+        this->mKiller2 not_eq this->mHash and
+        this->mPositionInfo.isLegalMove(this->mKiller2, this->mSide)) {
+      return this->mKiller2;
+    }
+    // 否则就下一步
     [[fallthrough]];
   case PHASE_NOT_CAPTURE_GEN:
     // 指明下一个阶段
@@ -1950,8 +1944,8 @@ Score PositionInfo::searchFull(Score alpha, const Score beta, const Depth depth,
   hashItem.mHashItemLock.lockForWrite();
   recordHash(hashItem, bestMoveHashFlag, bestScore, depth, bestMove);
   hashItem.mHashItemLock.unlock();
-  if (bestMove not_eq INVALID_MOVE) {
-    // 如果不是Alpha走法，就将最佳走法保存到历史表、杀手表、置换表
+  if (bestMove not_eq INVALID_MOVE and isEmpty(getDest(bestMove))) {
+    // 如果不是Alpha走法，并且不是吃子走法，就将最佳走法保存到历史表、杀手表
     setBestMove(bestMove, depth);
   }
   return bestScore;
@@ -1997,7 +1991,10 @@ Score PositionInfo::searchRoot(const Depth depth) {
   hashItem.mHashItemLock.lockForWrite();
   recordHash(hashItem, HASH_PV, bestScore, depth, this->mBestMove);
   hashItem.mHashItemLock.unlock();
-  setBestMove(this->mBestMove, depth);
+  // 如果不是吃子着法，就保存到历史表和杀手着法表
+  if (isEmpty(getDest(this->mBestMove))){
+    setBestMove(this->mBestMove, depth);
+  }
   return bestScore;
 }
 
