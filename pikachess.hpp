@@ -31,7 +31,7 @@ using Step = std::tuple<Position, Position, Position, Position>;
 // 已经评分的走法
 struct ValuedMove {
   Move mMove;
-  uint64_t mValue;
+  int64_t mValue;
   inline bool operator<(const ValuedMove &rhs);
 };
 // 每一个局面的所有走法列表，保留128个，不可能产生超过128个走法
@@ -225,7 +225,7 @@ constexpr Phase PHASE_CAPTURE {2};
 constexpr Phase PHASE_KILLER1 {3};
 constexpr Phase PHASE_KILLER2 {4};
 constexpr Phase PHASE_NOT_CAPTURE_GEN {5};
-constexpr Phase PHASE_NOT_CAPTURE {6};
+constexpr Phase PHASE_REST {6};
 // 完全搜索的有限状态机
 struct SearchMachine {
   // 位置信息
@@ -606,7 +606,8 @@ constexpr SpanBoard LEGAL_KNIGHT_PIN_SPAN{
 
 // MVV/LVA Most Valuable Victim Least Valuable Attacker
 // 每种子力的价值，车马炮兵象士将
-constexpr Score MVVLVA[16] = {0, 4, 3, 3, 2, 1, 1, 5, 0, 4, 3, 3, 2, 1, 1, 5};
+constexpr Score MVVLVA[16] = {0, 500, 200, 200, 50, 20, 20, 1000,
+                              0, 500, 200, 200, 50, 20, 20, 1000};
 
 // 定义用于生成fen的map
 FenMap CHESS_FEN;
@@ -735,21 +736,16 @@ inline Move toMove(const Position from, const Position to) {
 inline ValuedMove PositionInfo::toCapMove(const Position from, const Position to,
                                           const Side side) {
   Move move {toMove(from, to)};
-  uint64_t mvvlvaValue;
-  if (isProtected(to, side)) {
-    // 棋子被保护了
-    mvvlvaValue = (MVVLVA[this->mChessBoard[to]] << 3) - MVVLVA[this->mChessBoard[from]];
-  } else {
-    // 棋子没有被保护
-    mvvlvaValue = MVVLVA[this->mChessBoard[to]] << 3;
-  }
+  int64_t mvvlvaValue {MVVLVA[this->mChessBoard[to]]};
+  // 棋子被保护了
+  if (isProtected(to, side)) mvvlvaValue -= MVVLVA[this->mChessBoard[from]];
   return {move, mvvlvaValue};
 }
 
 // 用于生成ValuedMove
 inline ValuedMove PositionInfo::toNonCapMove(const Position from, const Position to) {
   Move move {toMove(from, to)};
-  return {move, this->mHistory[move]};
+  return {move, static_cast<int64_t>(this->mHistory[move])};
 }
 
 // 走法是否符合帅(将)的步长
@@ -1766,9 +1762,11 @@ Move SearchMachine::nextMove() {
     // 直接下一步
     [[fallthrough]];
   case PHASE_CAPTURE:
-    // 遍历走法，逐个返回
+    // 遍历走法，逐个返回好的吃子走法，吃亏的吃子着法留到最后搜索
     while (this->mNowIndex < this->mTotalMoves) {
-      return this->mMoves[mNowIndex++].mMove;
+      const ValuedMove &move = this->mMoves[mNowIndex++];
+      if (move.mValue >= 0) return move.mMove;
+      else { --this->mNowIndex; break;}
     }
     // 如果没有了就下一步
     [[fallthrough]];
@@ -1796,14 +1794,14 @@ Move SearchMachine::nextMove() {
     [[fallthrough]];
   case PHASE_NOT_CAPTURE_GEN:
     // 指明下一个阶段
-    this->mNowPhase = PHASE_NOT_CAPTURE;
+    this->mNowPhase = PHASE_REST;
     // 生成非吃子的走法并使用历史表对其进行排序
     this->mTotalMoves = this->mPositionInfo.nonCaptureMoveGen(this->mMoves,
-                                                              this->mSide, this->mNowIndex);
+                                                              this->mSide, this->mTotalMoves);
     sort(begin(this->mMoves) + this->mNowIndex, begin(this->mMoves) + this->mTotalMoves);
     // 直接下一步
     [[fallthrough]];
-  case PHASE_NOT_CAPTURE:
+  case PHASE_REST:
     // 遍历走法，逐个检查并返回
     while (this->mNowIndex < this->mTotalMoves) {
       Move move{this->mMoves[mNowIndex++].mMove};
@@ -1833,9 +1831,12 @@ Move SearchQuiescenceMachine::nextMove() {
     // 直接下一步
     [[fallthrough]];
   case PHASE_CAPTURE:
-    // 遍历走法，逐个返回
+    // 遍历走法，逐个返回好的吃子走法，吃亏的吃子着法留到最后搜索
+    // 由于这里是静态搜索，如果只生成吃子走法，那为了安全起见就要搜索完所有的吃子走法包括吃亏的
     while (this->mNowIndex < this->mTotalMoves) {
-      return this->mMoves[mNowIndex++].mMove;
+      const ValuedMove &move = this->mMoves[mNowIndex++];
+      if (this->mCapture or move.mValue >= 0) return move.mMove;
+      else { --this->mNowIndex; break;}
     }
     // 如果没有了就下一步
     [[fallthrough]];
@@ -1843,14 +1844,14 @@ Move SearchQuiescenceMachine::nextMove() {
     // 如果只生成吃子走法，直接返回即可
     if (this->mCapture) return INVALID_MOVE;
     // 指明下一个阶段
-    this->mNowPhase = PHASE_NOT_CAPTURE;
+    this->mNowPhase = PHASE_REST;
     // 生成非吃子的走法并使用历史表对其进行排序
     this->mTotalMoves = this->mPositionInfo.nonCaptureMoveGen(this->mMoves,
-                                                              this->mSide, this->mNowIndex);
+                                                              this->mSide, this->mTotalMoves);
     sort(begin(this->mMoves) + this->mNowIndex, begin(this->mMoves) + this->mTotalMoves);
     // 直接下一步
     [[fallthrough]];
-  case PHASE_NOT_CAPTURE:
+  case PHASE_REST:
     // 遍历走法，逐个返回
     while (this->mNowIndex < this->mTotalMoves) {
       return this->mMoves[mNowIndex++].mMove;
