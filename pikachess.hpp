@@ -1976,20 +1976,32 @@ Score PositionInfo::searchFull(Score alpha, const Score beta, const Depth depth,
   HashFlag bestMoveHashFlag {HASH_ALPHA};
   Score bestScore {LOSS_SCORE};
   Move bestMove {INVALID_MOVE};
+  // LMR的计数器
+  Count moveSearched {0};
   // 遍历所有走法
   while ((move = search.nextMove())) {
     // 如果被将军了就不搜索这一步
     if (makeMove(move, side)) {
       // 不然就获得评分并更新最好的分数
+      const MoveItem &lastMove {this->mHistoryMove[this->mHistorySize - 1]};
       // 将军延伸，如果将军了对方就多搜几步
-      Depth newDepth = this->mHistoryMove[this->mHistorySize - 1].mCheck ? depth : depth - 1;
+      Depth newDepth = lastMove.mCheck ? depth : depth - 1;
       // PVS
-      if (bestScore == LOSS_SCORE) {
+      if (moveSearched == 0) {
         tryScore = -searchFull(-beta, -alpha, newDepth, getOppSide(side));
       } else {
-        tryScore = -searchFull(-alpha - 1, -alpha, newDepth, getOppSide(side));
-        if (tryScore > alpha and tryScore < beta) {
-          tryScore = -searchFull(-beta, -alpha, newDepth, getOppSide(side));
+        // LMR，要求当前层数大于等于3，没有被将军，该步不是吃子步，从第4步棋开始往后
+        if (moveSearched >= 4 and depth >= 3 and
+            newDepth not_eq depth and not lastMove.mVictim) {
+          tryScore = -searchFull(-alpha - 1, -alpha, newDepth - 1, getOppSide(side));
+        }
+        // 其余情况保证搜索正常进行
+        else tryScore = alpha + 1;
+        if (tryScore > alpha) {
+          tryScore = -searchFull(-alpha - 1, -alpha, newDepth, getOppSide(side));
+          if (tryScore > alpha and tryScore < beta) {
+            tryScore = -searchFull(-beta, -alpha, newDepth, getOppSide(side));
+          }
         }
       }
       // 撤销走棋
@@ -2016,6 +2028,8 @@ Score PositionInfo::searchFull(Score alpha, const Score beta, const Depth depth,
           alpha = tryScore;
         }
       }
+      // 搜索了一步棋
+      ++moveSearched;
     }
   }
 
@@ -2044,23 +2058,36 @@ Score PositionInfo::searchRoot(const Depth depth) {
   // 搜索有限状态机
   SearchMachine search{*this, this->mBestMove, COMPUTER_SIDE};
   Score bestScore{LOSS_SCORE};
+  // LMR的计数器
+  Count moveSearched {0};
   // 遍历所有走法
   while ((move = search.nextMove())) {
     // 如果被将军了就不搜索这一步
     if (makeMove(move, COMPUTER_SIDE)) {
       // 不然就获得评分并更新最好的分数
       Score tryScore;
+      const MoveItem &lastMove {this->mHistoryMove[this->mHistorySize - 1]};
       // 将军延伸，如果将军了对方就多搜几步
-      Depth newDepth = this->mHistoryMove[this->mHistorySize - 1].mCheck ? depth : depth - 1;
+      Depth newDepth = lastMove.mCheck ? depth : depth - 1;
       // PVS
-      if (bestScore == LOSS_SCORE) {
+      if (moveSearched == 0) {
         tryScore = -searchFull(LOSS_SCORE, MATE_SCORE, newDepth,
                                getOppSide(COMPUTER_SIDE), NO_NULL);
       } else {
-        tryScore = -searchFull(-bestScore - 1, -bestScore, newDepth, getOppSide(COMPUTER_SIDE));
+        // LMR，要求当前层数大于等于3，没有被将军，该步不是吃子步，从第4步棋开始往后
+        if (moveSearched >= 4 and depth >= 3 and
+            newDepth not_eq depth and not lastMove.mVictim) {
+          tryScore = -searchFull(-bestScore - 1, -bestScore,
+                                 newDepth - 1, getOppSide(COMPUTER_SIDE));
+        }
+        // 其余情况保证搜索正常进行
+        else tryScore = bestScore + 1;
         if (tryScore > bestScore) {
-          tryScore = -searchFull(LOSS_SCORE, -bestScore, newDepth,
-                                 getOppSide(COMPUTER_SIDE), NO_NULL);
+          tryScore = -searchFull(-bestScore - 1, -bestScore, newDepth, getOppSide(COMPUTER_SIDE));
+          if (tryScore > bestScore) {
+            tryScore = -searchFull(LOSS_SCORE, -bestScore, newDepth,
+                                   getOppSide(COMPUTER_SIDE), NO_NULL);
+          }
         }
       }
       // 撤销走棋
@@ -2070,6 +2097,8 @@ Score PositionInfo::searchRoot(const Depth depth) {
         bestScore = tryScore;
         this->mBestMove = move;
       }
+      // 搜索了一步棋
+      ++moveSearched;
     }
   }
   // 记录到置换表
