@@ -1,40 +1,40 @@
 #include <QReadWriteLock>
 #include <QtConcurrent/QtConcurrent>
-// ±¾ÈËÀÁ¹·£¬ËùÒÔÓÃÕâÁ½¾ä¿©~
+// æœ¬äººæ‡’ç‹—ï¼Œæ‰€ä»¥ç”¨è¿™ä¸¤å¥å’¯~
 #include <bits/stdc++.h>
 using namespace std;
 
 /*
- * ¸øËüÃÇÈ¡Ò»Ğ©ÓĞÒâÒåµÄ±ğÃû°É!
- * MetaType¶¨Òå
- * ÎªÊ²Ã´²»Ê¹ÓÃstlÖĞµÄÂÖ×ÓÄØ£¿¶ÁÕß²»·Á¿ÉÒÔ×ÔĞĞ³¢ÊÔ£¬ËÑË÷Ê±¼ä»áÈÃÄãĞÄ·ş¿Ú·şµÄ!
+ * ç»™å®ƒä»¬å–ä¸€äº›æœ‰æ„ä¹‰çš„åˆ«åå§!
+ * MetaTypeå®šä¹‰
+ * ä¸ºä»€ä¹ˆä¸ä½¿ç”¨stlä¸­çš„è½®å­å‘¢ï¼Ÿè¯»è€…ä¸å¦¨å¯ä»¥è‡ªè¡Œå°è¯•ï¼Œæœç´¢æ—¶é—´ä¼šè®©ä½ å¿ƒæœå£æœçš„!
  */
-// ÓÎÏ·Ñ¡±ßÏà¹Ø
+// æ¸¸æˆé€‰è¾¹ç›¸å…³
 using Side = uint8_t;
 
-// ÆäËûÏà¹Ø
+// å…¶ä»–ç›¸å…³
 using Index = uint8_t;
 using Count = uint8_t;
 
-// ÆåÅÌÏà¹Ø
+// æ£‹ç›˜ç›¸å…³
 using Chess = uint8_t;
 using ChessBoard = Chess[256];
 
-// Î»ÖÃ¡¢×ß·¨Ïà¹Ø
+// ä½ç½®ã€èµ°æ³•ç›¸å…³
 using Position = uint8_t;
 using Move = uint16_t;
 using Delta = int8_t;
 using SpanBoard = Delta[512];
 using Step = std::tuple<Position, Position, Position, Position>;
 
-// ËÑË÷Ïà¹Ø
-// ÒÑ¾­ÆÀ·ÖµÄ×ß·¨
+// æœç´¢ç›¸å…³
+// å·²ç»è¯„åˆ†çš„èµ°æ³•
 struct ValuedMove {
   Move mMove;
   int64_t mValue;
   inline bool operator<(const ValuedMove &rhs);
 };
-// Ã¿Ò»¸ö¾ÖÃæµÄËùÓĞ×ß·¨ÁĞ±í£¬±£Áô128¸ö£¬²»¿ÉÄÜ²úÉú³¬¹ı128¸ö×ß·¨
+// æ¯ä¸€ä¸ªå±€é¢çš„æ‰€æœ‰èµ°æ³•åˆ—è¡¨ï¼Œä¿ç•™128ä¸ªï¼Œä¸å¯èƒ½äº§ç”Ÿè¶…è¿‡128ä¸ªèµ°æ³•
 using MoveList = ValuedMove[128];
 using Score = int16_t;
 using Depth = int8_t;
@@ -42,183 +42,183 @@ using MoveFlag = bool;
 using NullFlag = bool;
 using Clock = clock_t;
 
-// fenÏà¹Ø
+// fenç›¸å…³
 using FenMap = unordered_map<Chess, char>;
-// ÓĞÏŞ×´Ì¬»úµÄ½×¶Î
+// æœ‰é™çŠ¶æ€æœºçš„é˜¶æ®µ
 using Phase = uint8_t;
 
-// ÀúÊ·±íÏà¹Ø
-// ÀúÊ·±í·ÖÊı
+// å†å²è¡¨ç›¸å…³
+// å†å²è¡¨åˆ†æ•°
 using HistoryScore = uint64_t;
-// ÀúÊ·±í£¬Ò»¸ö×ß·¨µÄ×î´óÖµÎª: (203 << 8) | 202 = 52170
+// å†å²è¡¨ï¼Œä¸€ä¸ªèµ°æ³•çš„æœ€å¤§å€¼ä¸º: (203 << 8) | 202 = 52170
 using History = HistoryScore[52171];
 
-// É±ÊÖ×ß·¨±íÏà¹Ø
+// æ€æ‰‹èµ°æ³•è¡¨ç›¸å…³
 using Killer = Move[256][2];
 
-// ZobristÏà¹Ø
-// ÆåÅÌµÄzobristÖµ£¬µÍÎ»Ë÷Òı£¬¸ßÎ»Ğ£Ñé
+// Zobristç›¸å…³
+// æ£‹ç›˜çš„zobristå€¼ï¼Œä½ä½ç´¢å¼•ï¼Œé«˜ä½æ ¡éªŒ
 using ZobristValue = uint64_t;
-// ÆåÅÌÉÏÃ¿Ò»¸öÎ»ÖÃµÄzobristÖµ
+// æ£‹ç›˜ä¸Šæ¯ä¸€ä¸ªä½ç½®çš„zobristå€¼
 using Zobrist = ZobristValue[16][256];
 
-// ÀúÊ·×ß·¨Ïà¹Ø
-// ÖØ¸´¾ÖÃæ±êÖ¾
+// å†å²èµ°æ³•ç›¸å…³
+// é‡å¤å±€é¢æ ‡å¿—
 using RepeatFlag = uint8_t;
-// Ã¿Ò»²½µÄ½á¹¹
+// æ¯ä¸€æ­¥çš„ç»“æ„
 struct MoveItem {
-  // ×ß¸Ã×ß·¨Ç°¶ÔÓ¦µÄZobrist£¬ÓÃÓÚ¼ì²éÖØ¸´
+  // èµ°è¯¥èµ°æ³•å‰å¯¹åº”çš„Zobristï¼Œç”¨äºæ£€æŸ¥é‡å¤
   ZobristValue mZobrist;
-  // ×ß·¨
+  // èµ°æ³•
   Move mMove;
-  // ±£´æ±»³ÔµôµÄ×Ó£¬Ò²¿ÉÒÔ±êÖ¾ÕâÒ»²½ÊÇ²»ÊÇ³Ô×Ó×ß·¨£¬ÒòÎª¿ÕµÄÖµÎª0
+  // ä¿å­˜è¢«åƒæ‰çš„å­ï¼Œä¹Ÿå¯ä»¥æ ‡å¿—è¿™ä¸€æ­¥æ˜¯ä¸æ˜¯åƒå­èµ°æ³•ï¼Œå› ä¸ºç©ºçš„å€¼ä¸º0
   Chess mVictim;
-  // ÊÇ·ñÊÇ½«¾ü²½
+  // æ˜¯å¦æ˜¯å°†å†›æ­¥
   bool mCheck;
 };
-// ÀúÊ·×ß·¨±í
+// å†å²èµ°æ³•è¡¨
 using HistoryMove = MoveItem[256];
 
-// ÖÃ»»±íÏà¹Ø
+// ç½®æ¢è¡¨ç›¸å…³
 using HashMask = uint64_t;
 using HashFlag = uint8_t;
-// ÖÃ»»±í´óĞ¡
+// ç½®æ¢è¡¨å¤§å°
 constexpr size_t HASH_SIZE = 1 << 20;
-// È¡ÖÃ»»±íÏîÊ±µÄÑÚÂë
+// å–ç½®æ¢è¡¨é¡¹æ—¶çš„æ©ç 
 HashMask HASH_MASK{HASH_SIZE - 1};
-// ¶¨ÒåÖÃ»»±íÏîµÄflag
-// ALPHA½ÚµãµÄÖÃ»»±íÏî
+// å®šä¹‰ç½®æ¢è¡¨é¡¹çš„flag
+// ALPHAèŠ‚ç‚¹çš„ç½®æ¢è¡¨é¡¹
 constexpr HashFlag HASH_ALPHA{0};
-// BETA½ÚµãµÄÖÃ»»±íÏî
+// BETAèŠ‚ç‚¹çš„ç½®æ¢è¡¨é¡¹
 constexpr HashFlag HASH_BETA{1};
-// PV½ÚµãµÄÖÃ»»±íÏî
+// PVèŠ‚ç‚¹çš„ç½®æ¢è¡¨é¡¹
 constexpr HashFlag HASH_PV{2};
 struct HashItem {
-  // ¶ÁĞ´Ëø
+  // è¯»å†™é”
   QReadWriteLock mHashItemLock;
-  // ×ß¸Ã×ß·¨Ç°¶ÔÓ¦µÄZobrist£¬ÓÃÓÚĞ£Ñé
+  // èµ°è¯¥èµ°æ³•å‰å¯¹åº”çš„Zobristï¼Œç”¨äºæ ¡éªŒ
   ZobristValue mZobrist;
-  // ×ß·¨
+  // èµ°æ³•
   Move mMove;
-  // ¸Ã×ß·¨¶ÔÓ¦µÄ·ÖÊı
+  // è¯¥èµ°æ³•å¯¹åº”çš„åˆ†æ•°
   Score mScore;
-  // ¼ÇÂ¼¸ÃÏîÊ±Ëù´¦µÄÉî¶È
+  // è®°å½•è¯¥é¡¹æ—¶æ‰€å¤„çš„æ·±åº¦
   Depth mDepth;
-  // ¸Ã×ß·¨¶ÔÓ¦µÄÀàĞÍ£¨ALPHA£¬PV£¬BETA£©
+  // è¯¥èµ°æ³•å¯¹åº”çš„ç±»å‹ï¼ˆALPHAï¼ŒPVï¼ŒBETAï¼‰
   HashFlag mFlag;
-  // Ä¬ÈÏ¹¹Ôì
+  // é»˜è®¤æ„é€ 
   HashItem() = default;
-  // ¸´ÖÆ¹¹Ôì£¬²»ÓÃ¸´ÖÆ¶ÁĞ´Ëø
+  // å¤åˆ¶æ„é€ ï¼Œä¸ç”¨å¤åˆ¶è¯»å†™é”
   HashItem(const HashItem& rhs):mZobrist{rhs.mZobrist}, mMove{rhs.mMove},
                                   mScore{rhs.mScore}, mDepth{rhs.mDepth},
                                   mFlag{rhs.mFlag}{};
 };
-// ÖÃ»»±í
+// ç½®æ¢è¡¨
 using HashTable = HashItem[HASH_SIZE];
 
-// ÆåÅÌÎ»ÖÃĞÅÏ¢£¬ÓÃÓÚ¶àÏß³ÌËÑË÷
-// ¶¨ÒåmoveµÄ³õÊ¼Öµ
+// æ£‹ç›˜ä½ç½®ä¿¡æ¯ï¼Œç”¨äºå¤šçº¿ç¨‹æœç´¢
+// å®šä¹‰moveçš„åˆå§‹å€¼
 Move INVALID_MOVE{0};
-// ¶¨ÒåÆåÅÌÎ»ÖÃĞÅÏ¢
+// å®šä¹‰æ£‹ç›˜ä½ç½®ä¿¡æ¯
 struct PositionInfo {
-  // ÆåÅÌ¾ÖÃæĞÅÏ¢
+  // æ£‹ç›˜å±€é¢ä¿¡æ¯
   ChessBoard mChessBoard{};
-  // ÏÖÔÚ¾àÀë¸ù½ÚµãµÄÉî¶È
+  // ç°åœ¨è·ç¦»æ ¹èŠ‚ç‚¹çš„æ·±åº¦
   Depth mDistance{0};
-  // ÀúÊ·±í£¬ÓÃÓÚ¼ÓËÙ
+  // å†å²è¡¨ï¼Œç”¨äºåŠ é€Ÿ
   History mHistory{};
-  // É±ÊÖ±í£¬¼ÇÂ¼beta½Ø¶ÏµÄ×ß·¨
+  // æ€æ‰‹è¡¨ï¼Œè®°å½•betaæˆªæ–­çš„èµ°æ³•
   Killer mKiller{};
-  // ÀúÊ·×ß·¨±íÄ¿Ç°¶à´ó
+  // å†å²èµ°æ³•è¡¨ç›®å‰å¤šå¤§
   size_t mHistorySize{1};
-  // ÀúÊ·×ß·¨±í
+  // å†å²èµ°æ³•è¡¨
   HistoryMove mHistoryMove{};
-  // ÆåÅÌÏÖÔÚµÄZobristÖµ
+  // æ£‹ç›˜ç°åœ¨çš„Zobristå€¼
   ZobristValue mZobrist{0};
-  // ¶¨Òå×îºÃ×ß·¨
+  // å®šä¹‰æœ€å¥½èµ°æ³•
   Move mBestMove{INVALID_MOVE};
-  // ºì·½µÄ·ÖÊı
+  // çº¢æ–¹çš„åˆ†æ•°
   Score mRedScore{888};
-  // ºÚ·½µÄ·ÖÊı
+  // é»‘æ–¹çš„åˆ†æ•°
   Score mBlackScore{888};
-  // ¹¹Ôìº¯Êı
+  // æ„é€ å‡½æ•°
   PositionInfo();
-  // ³õÊ¼»¯º¯Êı
+  // åˆå§‹åŒ–å‡½æ•°
   void resetBoard();
-  // ¶àÏß³ÌÊ±Ê¹ÓÃ£¬½«Ö÷¾ÖÃæµÄPositionInfo¿½±´µ½±¾¾ÖÃæ
+  // å¤šçº¿ç¨‹æ—¶ä½¿ç”¨ï¼Œå°†ä¸»å±€é¢çš„PositionInfoæ‹·è´åˆ°æœ¬å±€é¢
   void setThreadPositionInfo(const PositionInfo &positionInfo);
-  // ÅĞ¶Ï¸ÃÆå×ÓÊÇºì·½Æå×Ó»¹ÊÇºÚ·½Æå×Ó, ²»ÄÜ´«Èë¿Õ£¬·ñÔòµ±×÷ºì·½×ÓÁ¦´¦Àí
+  // åˆ¤æ–­è¯¥æ£‹å­æ˜¯çº¢æ–¹æ£‹å­è¿˜æ˜¯é»‘æ–¹æ£‹å­, ä¸èƒ½ä¼ å…¥ç©ºï¼Œå¦åˆ™å½“ä½œçº¢æ–¹å­åŠ›å¤„ç†
   inline Side getChessSide(const Position pos);
-  // ¸ÃÎ»ÖÃÊÇ·ñÊÇ¿ÕµÄ
+  // è¯¥ä½ç½®æ˜¯å¦æ˜¯ç©ºçš„
   inline bool isEmpty(const Position pos);
-  // ¸ÃÎ»ÖÃÊÇ·ñÊÇ¶Ô·½µÄÆå×Ó
+  // è¯¥ä½ç½®æ˜¯å¦æ˜¯å¯¹æ–¹çš„æ£‹å­
   inline bool isOppChess(const Position pos, const Side side);
-  // »ñÈ¡ÆåÅÌÉÏµÄ½«
+  // è·å–æ£‹ç›˜ä¸Šçš„å°†
   Position getKING(const Side side);
-  // ÅĞ¶Ï¸ÃÎ»ÖÃÎª·ñ±»½«¾ü,sideÎª×ßÆå·½
+  // åˆ¤æ–­è¯¥ä½ç½®ä¸ºå¦è¢«å°†å†›,sideä¸ºèµ°æ£‹æ–¹
   bool isChecked(const Side side);
-  // ÅĞ¶Ï¸ÃÎ»ÖÃÎª·ñ±»±£»¤,sideÎª×ßÆå·½
+  // åˆ¤æ–­è¯¥ä½ç½®ä¸ºå¦è¢«ä¿æŠ¤,sideä¸ºèµ°æ£‹æ–¹
   bool isProtected(const Position pos, const Side side);
-  // ÅĞ¶ÏÒ»¸ö×ß·¨ÊÇ·ñÊÇºÏ·¨µÄ×ß·¨
+  // åˆ¤æ–­ä¸€ä¸ªèµ°æ³•æ˜¯å¦æ˜¯åˆæ³•çš„èµ°æ³•
   bool isLegalMove(const Move move, const Side side);
-  // ¼ì²éÖØ¸´×ß·¨
+  // æ£€æŸ¥é‡å¤èµ°æ³•
   inline RepeatFlag getRepeatFlag();
-  // ·µ»ØºÍÆåµÄ·ÖÖµ
+  // è¿”å›å’Œæ£‹çš„åˆ†å€¼
   inline Score getDrawScore();
-  // ´ÓÖØ¸´¼ì²é×´Ì¬ÂëÖĞÌáÈ¡·ÖÊı
+  // ä»é‡å¤æ£€æŸ¥çŠ¶æ€ç ä¸­æå–åˆ†æ•°
   inline Score scoreRepeatFlag(const RepeatFlag repeatFlag);
-  // ¼ÆËãºì·½×ßÁËÄ³¸öÎ»ÖÃºóµÄ·ÖÊı
+  // è®¡ç®—çº¢æ–¹èµ°äº†æŸä¸ªä½ç½®åçš„åˆ†æ•°
   inline void calcRedMove(const Move move);
-  // ¼ÆËãºÚ·½×ßÁËÄ³¸öÎ»ÖÃºóµÄ·ÖÊı
+  // è®¡ç®—é»‘æ–¹èµ°äº†æŸä¸ªä½ç½®åçš„åˆ†æ•°
   inline void calcBlackMove(const Move move);
-  // ¼ÆËãºì·½»¹Ô­ÁËÄ³Ò»²½ÆåºóµÄ·ÖÊı
+  // è®¡ç®—çº¢æ–¹è¿˜åŸäº†æŸä¸€æ­¥æ£‹åçš„åˆ†æ•°
   inline void calcRedUnMove(const Move move, const Chess victim);
-  // ¼ÆËãºÚ·½»¹Ô­ÁËÄ³Ò»²½ÆåºóµÄ·ÖÊı
+  // è®¡ç®—é»‘æ–¹è¿˜åŸäº†æŸä¸€æ­¥æ£‹åçš„åˆ†æ•°
   inline void calcBlackUnMove(const Move move, const Chess victim);
-  // ¼ÆËã×ßÒ»²½µÄ·ÖÊıºÍZobrist
+  // è®¡ç®—èµ°ä¸€æ­¥çš„åˆ†æ•°å’ŒZobrist
   inline void calcMove(const Move move, const Side side);
-  // ¼ÆËã³·Ïú×ßÒ»²½µÄ·ÖÊıºÍZobrist
+  // è®¡ç®—æ’¤é”€èµ°ä¸€æ­¥çš„åˆ†æ•°å’ŒZobrist
   inline void calcUnMove(const Move move, const Chess victim, const Side side);
-  // ÆÀ·Öº¯Êı
+  // è¯„åˆ†å‡½æ•°
   inline Score evaluate(const Side side);
-  // ËÑË÷ÖÃ»»±í
+  // æœç´¢ç½®æ¢è¡¨
   Score probeHash(Score alpha, Score beta, Depth depth, Move &hashMove);
-  // ±£´æµ½ÖÃ»»±í
+  // ä¿å­˜åˆ°ç½®æ¢è¡¨
   void recordHash(HashItem &hashItem, HashFlag hashFlag,
                   Score score, Depth depth, Move move);
-  // ÓÃÓÚÉèÖÃÀúÊ·±í¡¢É±ÊÖ±í
+  // ç”¨äºè®¾ç½®å†å²è¡¨ã€æ€æ‰‹è¡¨
   inline void setBestMove(const Move move, const Depth depth);
-  // ÓÃÓÚ×ß·¨Éú³ÉµÄ±ã½İº¯Êı
+  // ç”¨äºèµ°æ³•ç”Ÿæˆçš„ä¾¿æ·å‡½æ•°
   inline ValuedMove toCapMove(const Position from, const Position to, const Side side);
   inline ValuedMove toNonCapMove(const Position from, const Position to);
-  // ³Ô×Ó×ß·¨Éú³É
+  // åƒå­èµ°æ³•ç”Ÿæˆ
   Count captureMoveGen(MoveList &moves, const Side side, const Count startCount = 0);
-  // ²»³Ô×ß·¨Éú³É
+  // ä¸åƒèµ°æ³•ç”Ÿæˆ
   Count nonCaptureMoveGen(MoveList &moves, const Side side, const Count startCount = 0);
-  // ³·Ïú×ßÆå
+  // æ’¤é”€èµ°æ£‹
   inline void unMakeMove(const Move move, const Side side);
-  // ×ßÆå,·µ»ØÊÇ·ñ×ß³É¹¦
+  // èµ°æ£‹,è¿”å›æ˜¯å¦èµ°æˆåŠŸ
   inline bool makeMove(const Move move, const Side side);
-  // µ±Ç°ÊÇ·ñ´¦ÓÚ²Ğ¾Ö½×¶Î
+  // å½“å‰æ˜¯å¦å¤„äºæ®‹å±€é˜¶æ®µ
   inline bool isNotEndgame(const Side side);
-  // ×ßÒ»²½¿Õ²½
+  // èµ°ä¸€æ­¥ç©ºæ­¥
   inline void makeNullMove();
-  // ³·Ïú×ßÒ»²½¿Õ²½
+  // æ’¤é”€èµ°ä¸€æ­¥ç©ºæ­¥
   inline void unMakeNullMove();
-  // ¾²Ì¬ËÑË÷
+  // é™æ€æœç´¢
   Score searchQuiescence(Score alpha, const Score beta, const Side side);
-  // ÍêÈ«¾ÖÃæËÑË÷
+  // å®Œå…¨å±€é¢æœç´¢
   Score searchFull(Score alpha, const Score beta, const Depth depth,
                    const Side side, const NullFlag nullOk = true);
-  // ¸ù½ÚµãµÄËÑË÷
+  // æ ¹èŠ‚ç‚¹çš„æœç´¢
   Score searchRoot(const Depth depth);
-  // fenÉú³É
+  // fenç”Ÿæˆ
   string fenGen();
-  // perft²âÊÔ
+  // perftæµ‹è¯•
   void perft(const Depth depth, const Side side);
 };
 
-// ¶¨ÒåËÑË÷ÓĞÏŞ×´Ì¬»úµÄ½×¶Î
+// å®šä¹‰æœç´¢æœ‰é™çŠ¶æ€æœºçš„é˜¶æ®µ
 constexpr Phase PHASE_HASH {0};
 constexpr Phase PHASE_CAPTURE_GEN {1};
 constexpr Phase PHASE_CAPTURE {2};
@@ -226,54 +226,54 @@ constexpr Phase PHASE_KILLER1 {3};
 constexpr Phase PHASE_KILLER2 {4};
 constexpr Phase PHASE_NOT_CAPTURE_GEN {5};
 constexpr Phase PHASE_REST {6};
-// ÍêÈ«ËÑË÷µÄÓĞÏŞ×´Ì¬»ú
+// å®Œå…¨æœç´¢çš„æœ‰é™çŠ¶æ€æœº
 struct SearchMachine {
-  // Î»ÖÃĞÅÏ¢
+  // ä½ç½®ä¿¡æ¯
   PositionInfo &mPositionInfo;
-  // ÏÖÔÚÔÚµÚ¼¸¸ö½×¶Î£¬³õÊ¼ÖµÎª¹şÏ£±í×ß·¨´¦
+  // ç°åœ¨åœ¨ç¬¬å‡ ä¸ªé˜¶æ®µï¼Œåˆå§‹å€¼ä¸ºå“ˆå¸Œè¡¨èµ°æ³•å¤„
   Phase mNowPhase {PHASE_HASH};
-  // Ñ¡±ß±êÖ¾
+  // é€‰è¾¹æ ‡å¿—
   Side mSide;
-  // ÏÖÔÚÕıÔÚ±éÀúµÚ¼¸¸ö×ß·¨
+  // ç°åœ¨æ­£åœ¨éå†ç¬¬å‡ ä¸ªèµ°æ³•
   Index mNowIndex {0};
-  // ×Ü¹²ÓĞ¶àÉÙÖÖ×ß·¨
+  // æ€»å…±æœ‰å¤šå°‘ç§èµ°æ³•
   Count mTotalMoves {0};
-  // ËùÓĞ×ß·¨µÄÁĞ±í
+  // æ‰€æœ‰èµ°æ³•çš„åˆ—è¡¨
   MoveList mMoves {};
-  // ÖÃ»»±í×ß·¨£¬É±ÊÖ×ß·¨1¡¢2
+  // ç½®æ¢è¡¨èµ°æ³•ï¼Œæ€æ‰‹èµ°æ³•1ã€2
   Move mHash, mKiller1, mKiller2;
-  // ¹¹Ôìº¯Êı
+  // æ„é€ å‡½æ•°
   SearchMachine(PositionInfo &positionInfo, const Move hashMove, const Side side);
-  // ·µ»Ø×ß·¨µÄº¯Êı
+  // è¿”å›èµ°æ³•çš„å‡½æ•°
   Move nextMove();
 };
-// ³Ô×Ó×ß·¨±êÖ¾
+// åƒå­èµ°æ³•æ ‡å¿—
 constexpr MoveFlag CAPTURE {true};
-// ¾²Ì¬ËÑË÷µÄÓĞÏŞ×´Ì¬»ú
+// é™æ€æœç´¢çš„æœ‰é™çŠ¶æ€æœº
 struct SearchQuiescenceMachine {
-  // Î»ÖÃĞÅÏ¢
+  // ä½ç½®ä¿¡æ¯
   PositionInfo &mPositionInfo;
-  // ÏÖÔÚÔÚµÚ¼¸¸ö½×¶Î£¬³õÊ¼ÖµÎª³Ô×Ó×ß·¨Éú³É´¦
+  // ç°åœ¨åœ¨ç¬¬å‡ ä¸ªé˜¶æ®µï¼Œåˆå§‹å€¼ä¸ºåƒå­èµ°æ³•ç”Ÿæˆå¤„
   Phase mNowPhase {PHASE_CAPTURE_GEN};
-  // Ñ¡±ß±êÖ¾
+  // é€‰è¾¹æ ‡å¿—
   Side mSide;
-  // ÏÖÔÚÕıÔÚ±éÀúµÚ¼¸¸ö×ß·¨
+  // ç°åœ¨æ­£åœ¨éå†ç¬¬å‡ ä¸ªèµ°æ³•
   Index mNowIndex {0};
-  // ×Ü¹²ÓĞ¶àÉÙÖÖ×ß·¨
+  // æ€»å…±æœ‰å¤šå°‘ç§èµ°æ³•
   Count mTotalMoves {0};
-  // ËùÓĞ×ß·¨µÄÁĞ±í
+  // æ‰€æœ‰èµ°æ³•çš„åˆ—è¡¨
   MoveList mMoves {};
-  // ÊÇ·ñÖ»Éú³É³Ô×Ó×ß·¨
+  // æ˜¯å¦åªç”Ÿæˆåƒå­èµ°æ³•
   MoveFlag mCapture {CAPTURE};
-  // ¹¹Ôìº¯Êı
+  // æ„é€ å‡½æ•°
   SearchQuiescenceMachine(PositionInfo &positionInfo, const Side side);
-  // ·µ»Ø×ß·¨µÄº¯Êı
+  // è¿”å›èµ°æ³•çš„å‡½æ•°
   Move nextMove();
 };
 
-/* ÕæÕıµÄÊı¾İ¶¨Òå */
+/* çœŸæ­£çš„æ•°æ®å®šä¹‰ */
 
-// ¶¨ÒåÆå×ÓÀàĞÍºÍ±ß±íÊ¾£¬³µÂíÅÚ±øÏóÊ¿½«
+// å®šä¹‰æ£‹å­ç±»å‹å’Œè¾¹è¡¨ç¤ºï¼Œè½¦é©¬ç‚®å…µè±¡å£«å°†
 constexpr Side RED{0}, BLACK{8};
 constexpr Chess EMPTY{0};
 constexpr Chess ROOK{1}, KNIGHT{2}, CANNON{3};
@@ -282,7 +282,7 @@ constexpr Chess KING{7};
 constexpr Chess RED_KING{7};
 constexpr Chess BLACK_KING{15};
 
-// ¶¨ÒåÆåÅÌ£¬¾ÍÊÇÖĞ¹úÏóÆåµÄ³õÊ¼°Ú·¨À²~
+// å®šä¹‰æ£‹ç›˜ï¼Œå°±æ˜¯ä¸­å›½è±¡æ£‹çš„åˆå§‹æ‘†æ³•å•¦~
 ChessBoard INIT_BOARD{
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -302,9 +302,9 @@ ChessBoard INIT_BOARD{
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
 };
 
-//×ÓÁ¦µÄÎ»ÖÃ·ÖÊı
+//å­åŠ›çš„ä½ç½®åˆ†æ•°
 constexpr Score RED_VALUE[8][256]{
-    { // ¿Õ
+    { // ç©º
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -322,7 +322,7 @@ constexpr Score RED_VALUE[8][256]{
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
     },
-    { // ³µ
+    { // è½¦
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -340,7 +340,7 @@ constexpr Score RED_VALUE[8][256]{
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
     },
-    { // Âí
+    { // é©¬
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -358,7 +358,7 @@ constexpr Score RED_VALUE[8][256]{
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
     },
-    { // ÅÚ
+    { // ç‚®
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -376,7 +376,7 @@ constexpr Score RED_VALUE[8][256]{
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
     },
-    { // ±ø
+    { // å…µ
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -394,7 +394,7 @@ constexpr Score RED_VALUE[8][256]{
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
     },
-    { // Ïó
+    { // è±¡
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -412,7 +412,7 @@ constexpr Score RED_VALUE[8][256]{
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
     },
-    { // Ê¿
+    { // å£«
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -430,7 +430,7 @@ constexpr Score RED_VALUE[8][256]{
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
     },
-    { // ½«
+    { // å°†
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -449,7 +449,7 @@ constexpr Score RED_VALUE[8][256]{
      0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
     }};
 
-// ÊÇ·ñÔÚÆåÅÌÄÚ
+// æ˜¯å¦åœ¨æ£‹ç›˜å†…
 constexpr ChessBoard IN_BOARD{
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -469,7 +469,7 @@ constexpr ChessBoard IN_BOARD{
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-// ÊÇ·ñÔÚ¾Å¹¬ÄÚ
+// æ˜¯å¦åœ¨ä¹å®«å†…
 constexpr ChessBoard IN_SQRT{
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -489,7 +489,7 @@ constexpr ChessBoard IN_SQRT{
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };;
 
-// ÊÇ·ñÔÚºì×Ó°ë±ß
+// æ˜¯å¦åœ¨çº¢å­åŠè¾¹
 constexpr ChessBoard IN_RED_HALF{
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -509,7 +509,7 @@ constexpr ChessBoard IN_RED_HALF{
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-// ÊÇ·ñÔÚºÚ×Ó°ë±ß
+// æ˜¯å¦åœ¨é»‘å­åŠè¾¹
 constexpr ChessBoard IN_BLACK_HALF{
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -529,7 +529,7 @@ constexpr ChessBoard IN_BLACK_HALF{
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
-// ÅĞ¶Ï²½³¤ÊÇ·ñ·ûºÏÌØ¶¨×ß·¨µÄÊı×é£¬1=½«£¬2=Ê¿£¬3=Ïó
+// åˆ¤æ–­æ­¥é•¿æ˜¯å¦ç¬¦åˆç‰¹å®šèµ°æ³•çš„æ•°ç»„ï¼Œ1=å°†ï¼Œ2=å£«ï¼Œ3=è±¡
 constexpr SpanBoard LEGAL_SPAN{
     0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -567,7 +567,7 @@ constexpr SpanBoard LEGAL_SPAN{
 };
 
 
-// ¸ù¾İ²½³¤ÅĞ¶ÏÂíÊÇ·ñõ¿ÍÈµÄÊı×é
+// æ ¹æ®æ­¥é•¿åˆ¤æ–­é©¬æ˜¯å¦è¹©è…¿çš„æ•°ç»„
 constexpr SpanBoard LEGAL_KNIGHT_PIN_SPAN{
     0,  0,  0,  0,  0,  0,  0,  0,  0,
     0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,
@@ -605,213 +605,213 @@ constexpr SpanBoard LEGAL_KNIGHT_PIN_SPAN{
 };
 
 // MVV/LVA Most Valuable Victim Least Valuable Attacker
-// Ã¿ÖÖ×ÓÁ¦µÄ¼ÛÖµ£¬³µÂíÅÚ±øÏóÊ¿½«
+// æ¯ç§å­åŠ›çš„ä»·å€¼ï¼Œè½¦é©¬ç‚®å…µè±¡å£«å°†
 constexpr Score MVVLVA[16] = {0, 500, 200, 200, 50, 20, 20, 1000,
                               0, 500, 200, 200, 50, 20, 20, 1000};
 
-// ¶¨ÒåÓÃÓÚÉú³ÉfenµÄmap
+// å®šä¹‰ç”¨äºç”Ÿæˆfençš„map
 FenMap CHESS_FEN;
 
-// ¿Õ×Å²Ã¼ô±êÖ¾
+// ç©ºç€è£å‰ªæ ‡å¿—
 constexpr NullFlag NO_NULL{false};
 
-// ½«µÄ²½³¤, ÉÏÏÂ×óÓÒ
+// å°†çš„æ­¥é•¿, ä¸Šä¸‹å·¦å³
 constexpr Delta KING_DELTA[4]{-16, 16, -1, 1};
 
-// Ê¿µÄ²½³¤£¬Ğ±Ïß
+// å£«çš„æ­¥é•¿ï¼Œæ–œçº¿
 constexpr Delta ADVISOR_DELTA[4]{-17, -15, 15, 17};
 
-// ÏóµÄ²½³¤£¬¶ş²½Ğ±Ïß
+// è±¡çš„æ­¥é•¿ï¼ŒäºŒæ­¥æ–œçº¿
 constexpr Delta BISHOP_DELTA[4]{-34, -30, 30, 34};
 
-// ÏóÑÛµÄÎ»ÖÃ£¬ÓëÊ¿µÄ²½³¤ÏàÍ¬
+// è±¡çœ¼çš„ä½ç½®ï¼Œä¸å£«çš„æ­¥é•¿ç›¸åŒ
 constexpr const Delta (&BISHOP_PIN)[4]{ADVISOR_DELTA};
 
-// ³µ(ÅÚ),ÒÔ¼°·É½«µÄ²½³¤
+// è½¦(ç‚®),ä»¥åŠé£å°†çš„æ­¥é•¿
 constexpr const Delta (&LINE_CHESS_DELTA)[4]{KING_DELTA};
 
-// ÂíµÄ²½³¤£¬ÈÕ×Ö×ß·¨
+// é©¬çš„æ­¥é•¿ï¼Œæ—¥å­—èµ°æ³•
 constexpr Delta KNIGHT_DELTA[4][2]{
-    {-31, -33}, // ºÍÂíÍÈ -16 ¶ÔÓ¦
-    {31, 33},   // ºÍÂíÍÈ 16 ¶ÔÓ¦
-    {14, -18},  // ºÍÂíÍÈ -1 ¶ÔÓ¦
-    {-14, 18},  // ºÍÂíÍÈ 1 ¶ÔÓ¦
+    {-31, -33}, // å’Œé©¬è…¿ -16 å¯¹åº”
+    {31, 33},   // å’Œé©¬è…¿ 16 å¯¹åº”
+    {14, -18},  // å’Œé©¬è…¿ -1 å¯¹åº”
+    {-14, 18},  // å’Œé©¬è…¿ 1 å¯¹åº”
 };
 
-// ÂíÍÈµÄÎ»ÖÃ£¬Óë½«µÄ²½³¤ÏàÍ¬
+// é©¬è…¿çš„ä½ç½®ï¼Œä¸å°†çš„æ­¥é•¿ç›¸åŒ
 constexpr const Delta (&KNIGHT_PIN)[4]{KING_DELTA};
 
-// ¹ıºÓºì±øµÄ²½³¤
+// è¿‡æ²³çº¢å…µçš„æ­¥é•¿
 constexpr Delta PROMOTED_RED_PAWN_DELTA[3]{-16, -1, 1};
 
-// ¹ıºÓºÚ±øµÄ²½³¤
+// è¿‡æ²³é»‘å…µçš„æ­¥é•¿
 constexpr Delta PROMOTED_BLACK_PAWN_DELTA[3]{16, -1, 1};
 
-// Ã»¹ıºÓµÄºì±ø
+// æ²¡è¿‡æ²³çš„çº¢å…µ
 constexpr Delta RED_PAWN_DELTA{-16};
 
-// Ã»¹ıºÓµÄºÚ±ø
+// æ²¡è¿‡æ²³çš„é»‘å…µ
 constexpr Delta BLACK_PAWN_DELTA{16};
 
-// ±»½«¾üÊ±ÂíµÄ²½³¤£¬ÈÕ×Ö×ß·¨
+// è¢«å°†å†›æ—¶é©¬çš„æ­¥é•¿ï¼Œæ—¥å­—èµ°æ³•
 constexpr Delta CHECK_KNIGHT_DELTA[4][2]{
-    {-18, -33}, // ºÍ±»½«¾üÊ±ÂíÍÈ -17 ¶ÔÓ¦
-    {-31, -14}, // ºÍ±»½«¾üÊ±ÂíÍÈ -15 ¶ÔÓ¦
-    {14, 31},   // ºÍ±»½«¾üÊ±ÂíÍÈ 15 ¶ÔÓ¦
-    {18, 33},   // ºÍ±»½«¾üÊ±ÂíÍÈ 17 ¶ÔÓ¦
+    {-18, -33}, // å’Œè¢«å°†å†›æ—¶é©¬è…¿ -17 å¯¹åº”
+    {-31, -14}, // å’Œè¢«å°†å†›æ—¶é©¬è…¿ -15 å¯¹åº”
+    {14, 31},   // å’Œè¢«å°†å†›æ—¶é©¬è…¿ 15 å¯¹åº”
+    {18, 33},   // å’Œè¢«å°†å†›æ—¶é©¬è…¿ 17 å¯¹åº”
 };
 
-// ±»½«¾üÊ±ÂíÍÈµÄÎ»ÖÃ,ÓëÊ¿µÄ²½³¤ÏàÍ¬
+// è¢«å°†å†›æ—¶é©¬è…¿çš„ä½ç½®,ä¸å£«çš„æ­¥é•¿ç›¸åŒ
 const Delta (&CHECK_KNIGHT_PIN)[4]{ADVISOR_DELTA};
 
-// ËùÒÔºì½«¿ÉÄÜ³öÏÖµÄÎ»ÖÃ
+// æ‰€ä»¥çº¢å°†å¯èƒ½å‡ºç°çš„ä½ç½®
 constexpr Position RED_KING_POSITION[9]{166, 167, 168, 182, 183, 184, 198, 199, 200};
 
-// ËùÒÔºÚ½«¿ÉÄÜ³öÏÖµÄÎ»ÖÃ
+// æ‰€ä»¥é»‘å°†å¯èƒ½å‡ºç°çš„ä½ç½®
 constexpr Position BLACK_KING_POSITION[9]{54, 55, 56, 70, 71, 72, 86, 87, 88};
 
-// ±ßÖ¸Ê¾Æ÷£¬Ö¸Ê¾ÊÇºì·½»¹ÊÇºÚ·½
+// è¾¹æŒ‡ç¤ºå™¨ï¼ŒæŒ‡ç¤ºæ˜¯çº¢æ–¹è¿˜æ˜¯é»‘æ–¹
 Side COMPUTER_SIDE{BLACK};
 
-// ÆåÅÌÉÏÃ¿Ò»¸öÎ»ÖÃµÄZobristÖµ±í
+// æ£‹ç›˜ä¸Šæ¯ä¸€ä¸ªä½ç½®çš„Zobristå€¼è¡¨
 Zobrist CHESS_ZOBRIST;
 
-// Ñ¡±ßµÄZobristÖµ£¬»»±ß×ßÆåÊ±¾ÍÒªÒì»òÕâ¸öÖµ
+// é€‰è¾¹çš„Zobristå€¼ï¼Œæ¢è¾¹èµ°æ£‹æ—¶å°±è¦å¼‚æˆ–è¿™ä¸ªå€¼
 ZobristValue SIDE_ZOBRIST;
 
-// ÖÃ»»±í
+// ç½®æ¢è¡¨
 HashTable HASH_TABLE;
 
-// ¶¨ÒåËÑË÷Ê±¼ä
+// å®šä¹‰æœç´¢æ—¶é—´
 Clock SEARCH_TIME{1500};
 
-// ¶¨ÒåÏÈĞĞÆåµÄ·ÖÊı
+// å®šä¹‰å…ˆè¡Œæ£‹çš„åˆ†æ•°
 constexpr Score ADVANCED_SCORE{3};
 
-// ¶¨ÒåÊäÆåµÄ·ÖÊı
+// å®šä¹‰è¾“æ£‹çš„åˆ†æ•°
 constexpr Score LOSS_SCORE{-10000};
 
-// ¶¨ÒåºÍÆåµÄ·ÖÊı
+// å®šä¹‰å’Œæ£‹çš„åˆ†æ•°
 constexpr Score DRAW_SCORE{-20};
 
-// ¶¨ÒåÓ®ÆåµÄ·ÖÊı
+// å®šä¹‰èµ¢æ£‹çš„åˆ†æ•°
 constexpr Score MATE_SCORE{10000};
 
-// ³¤½«ÅĞ¸ºµÄ·ÖÖµ£¬µÍÓÚ¸ÃÖµ½«²»Ğ´ÈëÖÃ»»±í
+// é•¿å°†åˆ¤è´Ÿçš„åˆ†å€¼ï¼Œä½äºè¯¥å€¼å°†ä¸å†™å…¥ç½®æ¢è¡¨
 constexpr Score BAN_SCORE_MATE{9500};
 
-// ³¤½«ÅĞ¸ºµÄ·ÖÖµ£¬¸ßÓÚ¸ÃÖµ½«²»Ğ´ÈëÖÃ»»±í
+// é•¿å°†åˆ¤è´Ÿçš„åˆ†å€¼ï¼Œé«˜äºè¯¥å€¼å°†ä¸å†™å…¥ç½®æ¢è¡¨
 constexpr Score BAN_SCORE_LOSS{-9500};
 
-// ËÑË÷³öÓ®ÆåµÄ·ÖÖµ½çÏŞ£¬³¬³ö´ËÖµ¾ÍËµÃ÷ÒÑ¾­ËÑË÷³öÉ±ÆåÁË
+// æœç´¢å‡ºèµ¢æ£‹çš„åˆ†å€¼ç•Œé™ï¼Œè¶…å‡ºæ­¤å€¼å°±è¯´æ˜å·²ç»æœç´¢å‡ºæ€æ£‹äº†
 constexpr Score WIN_SCORE{9000};
 
-// ËÑË÷³öÊäÆåµÄ·ÖÖµ½çÏŞ£¬³¬³ö´ËÖµ¾ÍËµÃ÷ÒÑ¾­ËÑË÷³öÉ±ÆåÁË
+// æœç´¢å‡ºè¾“æ£‹çš„åˆ†å€¼ç•Œé™ï¼Œè¶…å‡ºæ­¤å€¼å°±è¯´æ˜å·²ç»æœç´¢å‡ºæ€æ£‹äº†
 constexpr Score LOST_SCORE{-9000};
 
-// µçÄÔËÑË÷µÄÉî¶È
+// ç”µè„‘æœç´¢çš„æ·±åº¦
 Depth CURRENT_DEPTH{0};
 
-// ¶¨ÒåÈ«¾ÖÏß³Ì¾ÖÃæ
+// å®šä¹‰å…¨å±€çº¿ç¨‹å±€é¢
 PositionInfo POSITION_INFO{};
 
-// ×î´ó²¢·¢Êı£¬ÒòÎªÏÖÔÚµÄcpuÓĞ³¬Ïß³Ì¼¼Êõ£¬ËùÒÔ³ıÒÔ2£¬ÊıÖµÉÏÎªÎïÀíºËĞÄÊı
+// æœ€å¤§å¹¶å‘æ•°ï¼Œå› ä¸ºç°åœ¨çš„cpuæœ‰è¶…çº¿ç¨‹æŠ€æœ¯ï¼Œæ‰€ä»¥é™¤ä»¥2ï¼Œæ•°å€¼ä¸Šä¸ºç‰©ç†æ ¸å¿ƒæ•°
 Count MAX_CONCURRENT = thread::hardware_concurrency() / 2;
 
-// ÓÃÓÚ×öperft²âÊÔµÄ½Úµã¼ÆÊıÆ÷
+// ç”¨äºåšperftæµ‹è¯•çš„èŠ‚ç‚¹è®¡æ•°å™¨
 uint64_t NODES {0};
 
-// ÓÃÓÚ²ğ·Ö×ß·¨£¬È¡¸ß8Î»
+// ç”¨äºæ‹†åˆ†èµ°æ³•ï¼Œå–é«˜8ä½
 inline Position getSrc(const Move move) { return move >> 8; }
 
-// ÓÃÓÚ²ğ·Ö×ß·¨£¬È¡µÍ8Î»
+// ç”¨äºæ‹†åˆ†èµ°æ³•ï¼Œå–ä½8ä½
 inline Position getDest(const Move move) { return move & 0xFF; }
 
-// ÓÃÓÚºÏ²¢×ß·¨
+// ç”¨äºåˆå¹¶èµ°æ³•
 inline Move toMove(const Position from, const Position to) {
   return from << 8 | to;
 }
 
-// ÓÃÓÚÉú³ÉValuedMove
+// ç”¨äºç”ŸæˆValuedMove
 inline ValuedMove PositionInfo::toCapMove(const Position from, const Position to,
                                           const Side side) {
   Move move {toMove(from, to)};
   int64_t mvvlvaValue {MVVLVA[this->mChessBoard[to]]};
-  // Æå×Ó±»±£»¤ÁË
+  // æ£‹å­è¢«ä¿æŠ¤äº†
   if (isProtected(to, side)) mvvlvaValue -= MVVLVA[this->mChessBoard[from]];
   return {move, mvvlvaValue};
 }
 
-// ÓÃÓÚÉú³ÉValuedMove
+// ç”¨äºç”ŸæˆValuedMove
 inline ValuedMove PositionInfo::toNonCapMove(const Position from, const Position to) {
   Move move {toMove(from, to)};
   return {move, static_cast<int64_t>(this->mHistory[move])};
 }
 
-// ×ß·¨ÊÇ·ñ·ûºÏË§(½«)µÄ²½³¤
+// èµ°æ³•æ˜¯å¦ç¬¦åˆå¸…(å°†)çš„æ­¥é•¿
 inline bool isKingSpan(const Move move) {
   return LEGAL_SPAN[256 + getDest(move) - getSrc(move)] == 1;
 }
 
-// ×ß·¨ÊÇ·ñ·ûºÏÊË(Ê¿)µÄ²½³¤
+// èµ°æ³•æ˜¯å¦ç¬¦åˆä»•(å£«)çš„æ­¥é•¿
 inline bool isAdvisorSpan(const Move move) {
   return LEGAL_SPAN[256 + getDest(move) - getSrc(move)] == 2;
 }
 
-// ×ß·¨ÊÇ·ñ·ûºÏÏà(Ïó)µÄ²½³¤
+// èµ°æ³•æ˜¯å¦ç¬¦åˆç›¸(è±¡)çš„æ­¥é•¿
 inline bool isBishopSpan(const Move move) {
   return LEGAL_SPAN[256 + getDest(move) - getSrc(move)] == 3;
 }
 
-// ·µ»Ø±øÏòÇ°×ßÒ»²½µÄÎ»ÖÃ
+// è¿”å›å…µå‘å‰èµ°ä¸€æ­¥çš„ä½ç½®
 inline Position getPawnForwardPos(const Position pos, const Side side) {
   if (side == RED) {
-    // Èç¹ûÊÇºì·½£¬±øÏòÇ°×ß
+    // å¦‚æœæ˜¯çº¢æ–¹ï¼Œå…µå‘å‰èµ°
     return pos + RED_PAWN_DELTA;
   } else {
-    // Èç¹ûÊÇºÚ·½£¬±øÏòÇ°×ß
+    // å¦‚æœæ˜¯é»‘æ–¹ï¼Œå…µå‘å‰èµ°
     return pos + BLACK_PAWN_DELTA;
   }
 }
 
-// ÏóÑÛµÄÎ»ÖÃ
+// è±¡çœ¼çš„ä½ç½®
 inline Position getBishopPinPos(const Move move) {
   return (getSrc(move) + getDest(move)) >> 1;
 }
 
-// ÂíÍÈµÄÎ»ÖÃ
+// é©¬è…¿çš„ä½ç½®
 inline Position getKnightPinPos(const Move move) {
   return getSrc(move) + LEGAL_KNIGHT_PIN_SPAN[256 + getDest(move) - getSrc(move)];
 }
 
-// ÊÇ·ñÔÚÍ¬Ò»±ß
+// æ˜¯å¦åœ¨åŒä¸€è¾¹
 inline bool isSameHalf(const Move move) {
   return ((getSrc(move) ^ getDest(move)) & 0x80) == 0;
 }
 
-// ÊÇ·ñÔÚÍ¬Ò»ĞĞ
+// æ˜¯å¦åœ¨åŒä¸€è¡Œ
 inline bool isSameRow(const Move move) {
   return ((getSrc(move) ^ getDest(move)) & 0xF0) == 0;
 }
 
-// ÊÇ·ñÔÚÍ¬Ò»ÁĞ
+// æ˜¯å¦åœ¨åŒä¸€åˆ—
 inline bool isSameColumn(const Move move) {
   return ((getSrc(move) ^ getDest(move)) & 0x0F) == 0;
 }
 
-// ÓÃÓÚ¼Æ·ÖµÄ·­×ª
+// ç”¨äºè®¡åˆ†çš„ç¿»è½¬
 inline Position flipPosition(const Position pos) { return 254 - pos; }
 
-// ValuedMoveµÄ±È½Ïº¯Êı£¬ÓÃÓÚ±È½ÏÁ½¸ö×ß·¨·ÖÖµµÄ´óĞ¡
+// ValuedMoveçš„æ¯”è¾ƒå‡½æ•°ï¼Œç”¨äºæ¯”è¾ƒä¸¤ä¸ªèµ°æ³•åˆ†å€¼çš„å¤§å°
 inline bool ValuedMove::operator<(const ValuedMove &rhs) {
   return this->mValue > rhs.mValue;
 }
 
-// ÖØÖÃÖÃ»»±íÓëÉî¶ÈĞÅÏ¢£¬Çå¿ÕÄ¬ÈÏ×î¼Ñ×ß·¨
+// é‡ç½®ç½®æ¢è¡¨ä¸æ·±åº¦ä¿¡æ¯ï¼Œæ¸…ç©ºé»˜è®¤æœ€ä½³èµ°æ³•
 inline void resetCache(PositionInfo &positionInfo) {
-  // ÖØÖÃÉî¶ÈĞÅÏ¢
+  // é‡ç½®æ·±åº¦ä¿¡æ¯
   positionInfo.mDistance = 0;
-  // ÖØÖÃÖÃ»»±í£¬²»ÄÜÓÃmemset£¬·ñÔò¾Í°Ñ¶ÁĞ´Ëø¸ã»µÁË
+  // é‡ç½®ç½®æ¢è¡¨ï¼Œä¸èƒ½ç”¨memsetï¼Œå¦åˆ™å°±æŠŠè¯»å†™é”æåäº†
   for (auto &hashItem : HASH_TABLE) {
     hashItem.mZobrist = 0;
     hashItem.mDepth = 0;
@@ -819,93 +819,93 @@ inline void resetCache(PositionInfo &positionInfo) {
     hashItem.mMove = 0;
     hashItem.mScore = 0;
   }
-  // ÖØÖÃ×î¼Ñ×ß·¨
+  // é‡ç½®æœ€ä½³èµ°æ³•
   positionInfo.mBestMove = INVALID_MOVE;
 }
 
-// ¾ÖÃæĞÅÏ¢µÄ¹¹Ôìº¯Êı
+// å±€é¢ä¿¡æ¯çš„æ„é€ å‡½æ•°
 PositionInfo::PositionInfo() {
-  // ³õÊ¼»¯ÆåÅÌ
+  // åˆå§‹åŒ–æ£‹ç›˜
   memcpy(this->mChessBoard, INIT_BOARD, 256);
-  //Çå¿Õ±í
+  //æ¸…ç©ºè¡¨
   memset(this->mHistory, 0, sizeof(this->mHistory));
   memset(this->mKiller, 0, sizeof(this->mKiller));
-  // ³õÊ¼»¯ÆåÅÌµÄZobrist£¬Ã¿Ò»¸öÎ»ÖÃ 51 - 203
+  // åˆå§‹åŒ–æ£‹ç›˜çš„Zobristï¼Œæ¯ä¸€ä¸ªä½ç½® 51 - 203
   for (Position pos{51}; pos < 204; ++pos) {
-    // Èç¹ûÓĞÆå×Ó¾ÍÒì»òÉÏÆå×ÓµÄZobristÖµ
+    // å¦‚æœæœ‰æ£‹å­å°±å¼‚æˆ–ä¸Šæ£‹å­çš„Zobristå€¼
     if (this->mChessBoard[pos]) {
       this->mZobrist ^= CHESS_ZOBRIST[this->mChessBoard[pos]][pos];
     }
   }
 }
 
-// ÖØÖÃÆåÅÌ
+// é‡ç½®æ£‹ç›˜
 void PositionInfo::resetBoard() {
-  // ³õÊ¼»¯ÆåÅÌ
+  // åˆå§‹åŒ–æ£‹ç›˜
   memcpy(this->mChessBoard, INIT_BOARD, 256);
-  // ³õÊ¼»¯¾àÀë¸ù½ÚµãµÄÉî¶ÈĞÅÏ¢
+  // åˆå§‹åŒ–è·ç¦»æ ¹èŠ‚ç‚¹çš„æ·±åº¦ä¿¡æ¯
   this->mDistance = 0;
-  // Çå¿Õ±í
+  // æ¸…ç©ºè¡¨
   memset(this->mHistory, 0, sizeof(this->mHistory));
   memset(this->mKiller, 0, sizeof(this->mKiller));
-  // ÀúÊ·±í´óĞ¡ÖÃ0
+  // å†å²è¡¨å¤§å°ç½®0
   this->mHistorySize = 0;
-  // Çå¿ÕÀúÊ·×ß·¨±í
+  // æ¸…ç©ºå†å²èµ°æ³•è¡¨
   memset(this->mHistoryMove, 0, sizeof(this->mHistoryMove));
-  // Çå¿ÕZobrist
+  // æ¸…ç©ºZobrist
   this->mZobrist = 0;
-  // ³õÊ¼»¯ÆåÅÌµÄZobrist£¬Ã¿Ò»¸öÎ»ÖÃ 51 - 203
+  // åˆå§‹åŒ–æ£‹ç›˜çš„Zobristï¼Œæ¯ä¸€ä¸ªä½ç½® 51 - 203
   for (Position pos{51}; pos < 204; ++pos) {
-    // Èç¹ûÓĞÆå×Ó¾ÍÒì»òÉÏÆå×ÓµÄZobristÖµ
+    // å¦‚æœæœ‰æ£‹å­å°±å¼‚æˆ–ä¸Šæ£‹å­çš„Zobristå€¼
     if (this->mChessBoard[pos]) {
       this->mZobrist ^= CHESS_ZOBRIST[this->mChessBoard[pos]][pos];
     }
   }
-  // Çå¿ÕBestMove
+  // æ¸…ç©ºBestMove
   this->mBestMove = INVALID_MOVE;
-  // ³õÊ¼»¯·ÖÊı
+  // åˆå§‹åŒ–åˆ†æ•°
   this->mRedScore = this->mBlackScore = 888;
 }
 
-// ¾ÖÃæĞÅÏ¢¸´ÖÆ£¬¶àÏß³Ì¹Ø¼ü
+// å±€é¢ä¿¡æ¯å¤åˆ¶ï¼Œå¤šçº¿ç¨‹å…³é”®
 void PositionInfo::setThreadPositionInfo(const PositionInfo &positionInfo) {
-  // ¿½±´ÆåÅÌ
+  // æ‹·è´æ£‹ç›˜
   memcpy(this->mChessBoard, positionInfo.mChessBoard, sizeof(this->mChessBoard));
-  // ¿½±´ÀúÊ·×ß·¨
+  // æ‹·è´å†å²èµ°æ³•
   memcpy(this->mHistoryMove, positionInfo.mHistoryMove, sizeof(this->mHistoryMove));
-  // ¿½±´·ÖÊı
+  // æ‹·è´åˆ†æ•°
   this->mRedScore = positionInfo.mRedScore;
   this->mBlackScore = positionInfo.mBlackScore;
-  // ¿½±´Zobrist
+  // æ‹·è´Zobrist
   this->mZobrist = positionInfo.mZobrist;
-  // ¿½±´´óĞ¡
+  // æ‹·è´å¤§å°
   this->mHistorySize = positionInfo.mHistorySize;
 }
 
-// ÅĞ¶Ï¸ÃÆå×ÓÊÇºì·½Æå×Ó»¹ÊÇºÚ·½Æå×Ó, ²»ÄÜ´«Èë¿Õ£¬·ñÔòµ±×÷ºì·½×ÓÁ¦´¦Àí
+// åˆ¤æ–­è¯¥æ£‹å­æ˜¯çº¢æ–¹æ£‹å­è¿˜æ˜¯é»‘æ–¹æ£‹å­, ä¸èƒ½ä¼ å…¥ç©ºï¼Œå¦åˆ™å½“ä½œçº¢æ–¹å­åŠ›å¤„ç†
 inline Side PositionInfo::getChessSide(const Position pos) {
   return this->mChessBoard[pos] & 0b1000;
 };
 
-// ¸ÃÎ»ÖÃÊÇ·ñÊÇ¿ÕµÄ
+// è¯¥ä½ç½®æ˜¯å¦æ˜¯ç©ºçš„
 inline bool PositionInfo::isEmpty(const Position pos) {
   return not this->mChessBoard[pos];
 }
 
-// ¸ÃÎ»ÖÃÊÇ·ñÊÇ¶Ô·½µÄÆå×Ó
+// è¯¥ä½ç½®æ˜¯å¦æ˜¯å¯¹æ–¹çš„æ£‹å­
 inline bool PositionInfo::isOppChess(const Position pos, const Side side) {
   return this->mChessBoard[pos] and getChessSide(pos) not_eq side;
 }
 
-// »ñµÃ¶ÔÊÖµÄÑ¡±ß
+// è·å¾—å¯¹æ‰‹çš„é€‰è¾¹
 inline Side getOppSide(const Side side) { return side ^ 0b1000; }
 
-// ½«Ò»¸öÆå×Ó×ª»¯Îª¶ÔÓ¦±ßµÄÆå×Ó
+// å°†ä¸€ä¸ªæ£‹å­è½¬åŒ–ä¸ºå¯¹åº”è¾¹çš„æ£‹å­
 inline Chess toSideChess(const Chess chess, const Side side) {
   return chess + side;
 }
 
-// ÊÇ·ñÔÚ×Ô¼ºµÄ°ë±ß£¬Ìá¹©Ô½½ç¼ì²é
+// æ˜¯å¦åœ¨è‡ªå·±çš„åŠè¾¹ï¼Œæä¾›è¶Šç•Œæ£€æŸ¥
 inline bool isMyHalf(const Position pos, const Side side) {
   if (side == RED) {
     return IN_RED_HALF[pos];
@@ -914,7 +914,7 @@ inline bool isMyHalf(const Position pos, const Side side) {
   }
 }
 
-// ÊÇ·ñÔÚ¶ÔÊÖµÄ°ë±ß£¬Ìá¹©Ô½½ç¼ì²é
+// æ˜¯å¦åœ¨å¯¹æ‰‹çš„åŠè¾¹ï¼Œæä¾›è¶Šç•Œæ£€æŸ¥
 inline bool isOppHalf(const Position pos, const Side side) {
   if (side == RED) {
     return IN_BLACK_HALF[pos];
@@ -923,7 +923,7 @@ inline bool isOppHalf(const Position pos, const Side side) {
   }
 }
 
-// »ñÈ¡ÆåÅÌÉÏµÄ½«
+// è·å–æ£‹ç›˜ä¸Šçš„å°†
 Position PositionInfo::getKING(const Side side) {
   if (side == RED) {
     for (Position pos : RED_KING_POSITION) {
@@ -941,29 +941,29 @@ Position PositionInfo::getKING(const Side side) {
   return {};
 }
 
-// ÅĞ¶Ï¸ÃÎ»ÖÃÎª·ñ±»½«¾ü,sideÎª×ßÆå·½
+// åˆ¤æ–­è¯¥ä½ç½®ä¸ºå¦è¢«å°†å†›,sideä¸ºèµ°æ£‹æ–¹
 bool PositionInfo::isChecked(const Side side) {
-  // Ê×ÏÈÕÒµ½ÆåÅÌÉÏµÄ½«
+  // é¦–å…ˆæ‰¾åˆ°æ£‹ç›˜ä¸Šçš„å°†
   Position pos{getKING(side)};
-  // »ñµÃ¶Ô·½µÄsideTag
+  // è·å¾—å¯¹æ–¹çš„sideTag
   Side oppSideTag{getOppSide(side)};
 
-  // ÅĞ¶ÏÊÇ·ñ±»±ø½«¾ü
+  // åˆ¤æ–­æ˜¯å¦è¢«å…µå°†å†›
   for (const auto &delta : side == RED ? PROMOTED_RED_PAWN_DELTA : PROMOTED_BLACK_PAWN_DELTA) {
-    // ¼ì²é¶ÔÓ¦Î»ÖÃÊÇ·ñÔÚÆåÅÌÄÚ,¶ÔÓ¦µÄÎ»ÖÃÉÏÊÇ·ñÓĞÆå×Ó,¿´Ò»ÏÂÕâ¸öÆå×ÓÊÇ²»ÊÇ¶Ô·½µÄ±ø
+    // æ£€æŸ¥å¯¹åº”ä½ç½®æ˜¯å¦åœ¨æ£‹ç›˜å†…,å¯¹åº”çš„ä½ç½®ä¸Šæ˜¯å¦æœ‰æ£‹å­,çœ‹ä¸€ä¸‹è¿™ä¸ªæ£‹å­æ˜¯ä¸æ˜¯å¯¹æ–¹çš„å…µ
     if (this->mChessBoard[pos + delta] == toSideChess(PAWN, oppSideTag)) {
       return true;
     }
   }
 
-  // ÅĞ¶ÏÊÇ·ñ±»Âí½«¾ü
+  // åˆ¤æ–­æ˜¯å¦è¢«é©¬å°†å†›
   for (Index index{0}; index < 4; ++index) {
-    // ÏÈ¿´ÂíÍÈÓĞÃ»ÓĞÔÚÆåÅÌÀï£¬²¢ÇÒÓĞÃ»ÓĞ±ïÂíÍÈ
-    // ÂíÍÈ³¬³ö·¶Î§»òÕßõ¿ÂíÍÈÁË¾ÍÖ±½ÓÏÂÒ»ÂÖ£¬±ÜÃâÔÚÏÂÒ»¸öforÑ­»·ÀïÃæÅĞ¶ÏÁ½´Î
+    // å…ˆçœ‹é©¬è…¿æœ‰æ²¡æœ‰åœ¨æ£‹ç›˜é‡Œï¼Œå¹¶ä¸”æœ‰æ²¡æœ‰æ†‹é©¬è…¿
+    // é©¬è…¿è¶…å‡ºèŒƒå›´æˆ–è€…è¹©é©¬è…¿äº†å°±ç›´æ¥ä¸‹ä¸€è½®ï¼Œé¿å…åœ¨ä¸‹ä¸€ä¸ªforå¾ªç¯é‡Œé¢åˆ¤æ–­ä¸¤æ¬¡
     if (IN_BOARD[pos + CHECK_KNIGHT_PIN[index]] and isEmpty(pos + CHECK_KNIGHT_PIN[index])) {
-      // ±éÀúÃ¿Ò»¸öÂí²½
+      // éå†æ¯ä¸€ä¸ªé©¬æ­¥
       for (const auto &delta : CHECK_KNIGHT_DELTA[index]) {
-        // ¼ì²é¶ÔÓ¦Î»ÖÃÊÇ·ñÔÚÆåÅÌÄÚ,¶ÔÓ¦µÄÎ»ÖÃÉÏÊÇ·ñÓĞÆå×Ó,ÊÇ·ñ±»õ¿ÂíÍÈ,¿´Ò»ÏÂÕâ¸öÆå×ÓÊÇ²»ÊÇ¶Ô·½µÄÂí
+        // æ£€æŸ¥å¯¹åº”ä½ç½®æ˜¯å¦åœ¨æ£‹ç›˜å†…,å¯¹åº”çš„ä½ç½®ä¸Šæ˜¯å¦æœ‰æ£‹å­,æ˜¯å¦è¢«è¹©é©¬è…¿,çœ‹ä¸€ä¸‹è¿™ä¸ªæ£‹å­æ˜¯ä¸æ˜¯å¯¹æ–¹çš„é©¬
         if (this->mChessBoard[pos + delta] == toSideChess(KNIGHT, oppSideTag)) {
           return true;
         }
@@ -971,10 +971,10 @@ bool PositionInfo::isChecked(const Side side) {
     }
   }
 
-  // ÅĞ¶ÏÊÇ·ñ±»³µ(ÅÚ)½«¾ü£¬°üÀ¨½«Ë§¶ÔÁ³
+  // åˆ¤æ–­æ˜¯å¦è¢«è½¦(ç‚®)å°†å†›ï¼ŒåŒ…æ‹¬å°†å¸…å¯¹è„¸
   for (const auto &delta : LINE_CHESS_DELTA) {
     Position cur = pos + delta;
-    // ¼ì²é³µ(½«)
+    // æ£€æŸ¥è½¦(å°†)
     while (IN_BOARD[cur]) {
       if (this->mChessBoard[cur]) {
         if (this->mChessBoard[cur] == toSideChess(ROOK, oppSideTag) or
@@ -986,7 +986,7 @@ bool PositionInfo::isChecked(const Side side) {
       }
       cur += delta;
     }
-    // ¼ì²éÅÚ
+    // æ£€æŸ¥ç‚®
     while (IN_BOARD[cur]) {
       if (this->mChessBoard[cur]) {
         if (this->mChessBoard[cur] == toSideChess(CANNON, oppSideTag)) {
@@ -1000,35 +1000,35 @@ bool PositionInfo::isChecked(const Side side) {
   return false;
 }
 
-// ÅĞ¶Ï¸ÃÎ»ÖÃÎª·ñ±»±£»¤,sideÎª×ßÆå·½
+// åˆ¤æ–­è¯¥ä½ç½®ä¸ºå¦è¢«ä¿æŠ¤,sideä¸ºèµ°æ£‹æ–¹
 bool PositionInfo::isProtected(const Position pos, const Side side) {
-  // »ñµÃ¶Ô·½µÄsideTag
+  // è·å¾—å¯¹æ–¹çš„sideTag
   Side oppSideTag{getOppSide(side)};
 
-  // ÅĞ¶ÏÊÇ·ñ±»±ø±£»¤
+  // åˆ¤æ–­æ˜¯å¦è¢«å…µä¿æŠ¤
   for (const auto &delta : side == RED ? PROMOTED_RED_PAWN_DELTA : PROMOTED_BLACK_PAWN_DELTA) {
-    // ¼ì²é¶ÔÓ¦Î»ÖÃÊÇ·ñÔÚÆåÅÌÄÚ,¶ÔÓ¦µÄÎ»ÖÃÉÏÊÇ·ñÓĞÆå×Ó,¿´Ò»ÏÂÕâ¸öÆå×ÓÊÇ²»ÊÇ¶Ô·½µÄ±ø
+    // æ£€æŸ¥å¯¹åº”ä½ç½®æ˜¯å¦åœ¨æ£‹ç›˜å†…,å¯¹åº”çš„ä½ç½®ä¸Šæ˜¯å¦æœ‰æ£‹å­,çœ‹ä¸€ä¸‹è¿™ä¸ªæ£‹å­æ˜¯ä¸æ˜¯å¯¹æ–¹çš„å…µ
     if (this->mChessBoard[pos + delta] == toSideChess(PAWN, oppSideTag)) {
       return true;
     }
   }
 
-  // ÅĞ¶ÏÊÇ·ñ±»½«±£»¤
+  // åˆ¤æ–­æ˜¯å¦è¢«å°†ä¿æŠ¤
   for (const auto &delta : KING_DELTA) {
-    // ¼ì²é¶ÔÓ¦Î»ÖÃÊÇ·ñÔÚÆåÅÌÄÚ,¶ÔÓ¦µÄÎ»ÖÃÉÏÊÇ·ñÓĞÆå×Ó,¿´Ò»ÏÂÕâ¸öÆå×ÓÊÇ²»ÊÇ¶Ô·½µÄ½«
+    // æ£€æŸ¥å¯¹åº”ä½ç½®æ˜¯å¦åœ¨æ£‹ç›˜å†…,å¯¹åº”çš„ä½ç½®ä¸Šæ˜¯å¦æœ‰æ£‹å­,çœ‹ä¸€ä¸‹è¿™ä¸ªæ£‹å­æ˜¯ä¸æ˜¯å¯¹æ–¹çš„å°†
     if (this->mChessBoard[pos + delta] == toSideChess(KING, oppSideTag)) {
       return true;
     }
   }
 
-  // ÅĞ¶ÏÊÇ·ñ±»Âí±£»¤
+  // åˆ¤æ–­æ˜¯å¦è¢«é©¬ä¿æŠ¤
   for (Index index{0}; index < 4; ++index) {
-    // ÏÈ¿´ÂíÍÈÓĞÃ»ÓĞÔÚÆåÅÌÀï£¬²¢ÇÒÓĞÃ»ÓĞ±ïÂíÍÈ
-    // ÂíÍÈ³¬³ö·¶Î§»òÕßõ¿ÂíÍÈÁË¾ÍÖ±½ÓÏÂÒ»ÂÖ£¬±ÜÃâÔÚÏÂÒ»¸öforÑ­»·ÀïÃæÅĞ¶ÏÁ½´Î
+    // å…ˆçœ‹é©¬è…¿æœ‰æ²¡æœ‰åœ¨æ£‹ç›˜é‡Œï¼Œå¹¶ä¸”æœ‰æ²¡æœ‰æ†‹é©¬è…¿
+    // é©¬è…¿è¶…å‡ºèŒƒå›´æˆ–è€…è¹©é©¬è…¿äº†å°±ç›´æ¥ä¸‹ä¸€è½®ï¼Œé¿å…åœ¨ä¸‹ä¸€ä¸ªforå¾ªç¯é‡Œé¢åˆ¤æ–­ä¸¤æ¬¡
     if (IN_BOARD[pos + CHECK_KNIGHT_PIN[index]] and isEmpty(pos + CHECK_KNIGHT_PIN[index])) {
-      // ±éÀúÃ¿Ò»¸öÂí²½
+      // éå†æ¯ä¸€ä¸ªé©¬æ­¥
       for (const auto &delta : CHECK_KNIGHT_DELTA[index]) {
-        // ¼ì²é¶ÔÓ¦Î»ÖÃÊÇ·ñÔÚÆåÅÌÄÚ,¶ÔÓ¦µÄÎ»ÖÃÉÏÊÇ·ñÓĞÆå×Ó,ÊÇ·ñ±»õ¿ÂíÍÈ,¿´Ò»ÏÂÕâ¸öÆå×ÓÊÇ²»ÊÇ¶Ô·½µÄÂí
+        // æ£€æŸ¥å¯¹åº”ä½ç½®æ˜¯å¦åœ¨æ£‹ç›˜å†…,å¯¹åº”çš„ä½ç½®ä¸Šæ˜¯å¦æœ‰æ£‹å­,æ˜¯å¦è¢«è¹©é©¬è…¿,çœ‹ä¸€ä¸‹è¿™ä¸ªæ£‹å­æ˜¯ä¸æ˜¯å¯¹æ–¹çš„é©¬
         if (this->mChessBoard[pos + delta] == toSideChess(KNIGHT, oppSideTag)) {
           return true;
         }
@@ -1036,10 +1036,10 @@ bool PositionInfo::isProtected(const Position pos, const Side side) {
     }
   }
 
-  // ÅĞ¶ÏÊÇ·ñ±»³µ(ÅÚ)±£»¤
+  // åˆ¤æ–­æ˜¯å¦è¢«è½¦(ç‚®)ä¿æŠ¤
   for (const auto &delta : LINE_CHESS_DELTA) {
     Position cur = pos + delta;
-    // ¼ì²é³µ
+    // æ£€æŸ¥è½¦
     while (IN_BOARD[cur]) {
       if (this->mChessBoard[cur]) {
         if (this->mChessBoard[cur] == toSideChess(ROOK, oppSideTag)) {
@@ -1050,7 +1050,7 @@ bool PositionInfo::isProtected(const Position pos, const Side side) {
       }
       cur += delta;
     }
-    // ¼ì²éÅÚ
+    // æ£€æŸ¥ç‚®
     while (IN_BOARD[cur]) {
       if (this->mChessBoard[cur]) {
         if (this->mChessBoard[cur] == toSideChess(CANNON, oppSideTag)) {
@@ -1064,44 +1064,44 @@ bool PositionInfo::isProtected(const Position pos, const Side side) {
   return false;
 }
 
-// ÅĞ¶ÏÒ»¸ö×ß·¨ÊÇ·ñÊÇºÏ·¨µÄ×ß·¨
+// åˆ¤æ–­ä¸€ä¸ªèµ°æ³•æ˜¯å¦æ˜¯åˆæ³•çš„èµ°æ³•
 bool PositionInfo::isLegalMove(const Move move, const Side side) {
-  // ¶¨ÒåÒªÓÃµ½µÄ±äÁ¿
+  // å®šä¹‰è¦ç”¨åˆ°çš„å˜é‡
   Position src{getSrc(move)}, dest{getDest(move)};
 
-  // Èç¹ûÆğÊ¼µÄÎ»ÖÃ²»ÊÇ×Ô¼ºµÄÆå×Ó»òÕßÖÕµãµÄÎ»ÖÃÊÇ×Ô¼ºµÄÆå×Ó¾Í·µ»Ø¼Ù
+  // å¦‚æœèµ·å§‹çš„ä½ç½®ä¸æ˜¯è‡ªå·±çš„æ£‹å­æˆ–è€…ç»ˆç‚¹çš„ä½ç½®æ˜¯è‡ªå·±çš„æ£‹å­å°±è¿”å›å‡
   if (isEmpty(src) or getChessSide(src) not_eq side or
       (this->mChessBoard[dest] and getChessSide(dest) == side)) {
     return false;
   }
 
-  // ¶¨ÒåÒªÓÃµ½µÄ±äÁ¿
+  // å®šä¹‰è¦ç”¨åˆ°çš„å˜é‡
   Delta delta;
   Chess chess = this->mChessBoard[src] - side;
-  // ¸ù¾İÇé¿öÅĞ¶Ï×ß·¨ÊÇ·ñºÏ·¨
+  // æ ¹æ®æƒ…å†µåˆ¤æ–­èµ°æ³•æ˜¯å¦åˆæ³•
   switch (chess) {
-    // ÊÇ·ñÔÚ¾Å¹¬ÄÚ£¬ÊÇ·ñ·ûºÏ½«µÄ²½³¤
+    // æ˜¯å¦åœ¨ä¹å®«å†…ï¼Œæ˜¯å¦ç¬¦åˆå°†çš„æ­¥é•¿
   case KING:
     return IN_SQRT[dest] and isKingSpan(move);
-    // ÊÇ·ñÔÚ¾Å¹¬ÄÚ£¬ÊÇ·ñ·ûºÏÊ¿µÄ²½³¤
+    // æ˜¯å¦åœ¨ä¹å®«å†…ï¼Œæ˜¯å¦ç¬¦åˆå£«çš„æ­¥é•¿
   case ADVISOR:
     return IN_SQRT[dest] and isAdvisorSpan(move);
-    // ÊÇ·ñÔÚÍ¬Ò»±ß£¬ÊÇ·ñ·ûºÏÏóµÄ²½³¤£¬ÊÇ·ñÈûÏóÑÛ
+    // æ˜¯å¦åœ¨åŒä¸€è¾¹ï¼Œæ˜¯å¦ç¬¦åˆè±¡çš„æ­¥é•¿ï¼Œæ˜¯å¦å¡è±¡çœ¼
   case BISHOP:
     return isSameHalf(move) and isBishopSpan(move) and isEmpty(getBishopPinPos(move));
-    // ÊÇ·ñ·ûºÏÂíµÄ²½³¤£¬ÊÇ·ñ±ïÂíÍÈ
+    // æ˜¯å¦ç¬¦åˆé©¬çš„æ­¥é•¿ï¼Œæ˜¯å¦æ†‹é©¬è…¿
   case KNIGHT:
     return getKnightPinPos(move) not_eq src and isEmpty(getKnightPinPos(move));
   case ROOK:
   case CANNON:
-    // ÅĞ¶ÏÊÇ·ñÔÚÍ¬Ò»ĞĞ
+    // åˆ¤æ–­æ˜¯å¦åœ¨åŒä¸€è¡Œ
     if (isSameRow(move)) {
       if (src > dest) {
         delta = -1;
       } else {
         delta = 1;
       }
-      // ÊÇ·ñÔÚÍ¬Ò»ÁĞ
+      // æ˜¯å¦åœ¨åŒä¸€åˆ—
     } else if (isSameColumn(move)) {
       if (src > dest) {
         delta = -16;
@@ -1111,107 +1111,107 @@ bool PositionInfo::isLegalMove(const Move move, const Side side) {
     } else {
       return false;
     }
-    // ÍùÇ°ËÑË÷µÚÒ»¸öÆå×Ó
+    // å¾€å‰æœç´¢ç¬¬ä¸€ä¸ªæ£‹å­
     src += delta;
     while (src not_eq dest and isEmpty(src)) {
       src += delta;
     }
     if (src == dest) {
-      // _:¿Õ X:Ä¿±êÆå×Ó O:ÖĞ¼äÆå×Ó
-      // µ½Í·ÁË£¬¿´¿´×îÖÕÎ»ÖÃÊÇ·ñÎª¿Õ£¬Ò²¾ÍÊÇÕâĞ©Çé¿ö: ³µ------->_ | ÅÚ------->_
-      // Èç¹û²»Îª¿Õ£¬¿´¿´×ßµÄÆå×ÓÊÇ·ñÎª³µ£¨³µ³Ô×Ó£©£¬Ò²¾ÍÊÇÕâÖÖÇé¿ö: ³µ------->X
+      // _:ç©º X:ç›®æ ‡æ£‹å­ O:ä¸­é—´æ£‹å­
+      // åˆ°å¤´äº†ï¼Œçœ‹çœ‹æœ€ç»ˆä½ç½®æ˜¯å¦ä¸ºç©ºï¼Œä¹Ÿå°±æ˜¯è¿™äº›æƒ…å†µ: è½¦------->_ | ç‚®------->_
+      // å¦‚æœä¸ä¸ºç©ºï¼Œçœ‹çœ‹èµ°çš„æ£‹å­æ˜¯å¦ä¸ºè½¦ï¼ˆè½¦åƒå­ï¼‰ï¼Œä¹Ÿå°±æ˜¯è¿™ç§æƒ…å†µ: è½¦------->X
       return isEmpty(dest) or chess == ROOK;
     } else if (this->mChessBoard[dest] and chess == CANNON) {
-      // Ã»ÓĞµ½Í·£¬µ«ÊÇÄ¿±êÎ»ÖÃÓĞ¶Ô·½µÄÆå×Ó£¬²¢ÇÒÎÒÃÇ×ßµÄÆå×ÓÊÇÅÚ¾Í¼ÌĞøÅĞ¶Ï
+      // æ²¡æœ‰åˆ°å¤´ï¼Œä½†æ˜¯ç›®æ ‡ä½ç½®æœ‰å¯¹æ–¹çš„æ£‹å­ï¼Œå¹¶ä¸”æˆ‘ä»¬èµ°çš„æ£‹å­æ˜¯ç‚®å°±ç»§ç»­åˆ¤æ–­
       src += delta;
-      // ÍùÇ°ÕÒµÚ¶ş¸öÆå×Ó
+      // å¾€å‰æ‰¾ç¬¬äºŒä¸ªæ£‹å­
       while (src not_eq dest and isEmpty(src)) {
         src += delta;
       }
-      // Èç¹ûµ½Í·ÁË£¬¿´¿´¾¡Í·ÊÇ²»ÊÇÆå×Ó£¬Ò²¾ÍÊÇÕâÖÖÇé¿ö: ÅÚ---O--->X
+      // å¦‚æœåˆ°å¤´äº†ï¼Œçœ‹çœ‹å°½å¤´æ˜¯ä¸æ˜¯æ£‹å­ï¼Œä¹Ÿå°±æ˜¯è¿™ç§æƒ…å†µ: ç‚®---O--->X
       return src == dest;
     }
-    // ÆäËûµÄËùÓĞ²»·ûºÏµÄÇé¿ö£¬ĞÎÈçÏÂ:
-    // ³µ---O--->_ | ³µ---O--->X
-    // ÅÚ---O--->_ | ÅÚ--O-O-->X
+    // å…¶ä»–çš„æ‰€æœ‰ä¸ç¬¦åˆçš„æƒ…å†µï¼Œå½¢å¦‚ä¸‹:
+    // è½¦---O--->_ | è½¦---O--->X
+    // ç‚®---O--->_ | ç‚®--O-O-->X
     return false;
   case PAWN:
-    // Èç¹û¹ıºÓÁË£¬²¢ÇÒÊÇ×óÓÒĞĞ×ß
+    // å¦‚æœè¿‡æ²³äº†ï¼Œå¹¶ä¸”æ˜¯å·¦å³è¡Œèµ°
     if (isOppHalf(src, side) and (dest - src == 1 or dest - src == -1)) {
       return true;
     }
-    // Èç¹ûÃ»¹ıºÓÖ»ÄÜÏòÇ°×ß£¬Èç¹û¹ıºÓÁË¾Í²¹ÉÏÏòÇ°×ßµÄÒ»²½
+    // å¦‚æœæ²¡è¿‡æ²³åªèƒ½å‘å‰èµ°ï¼Œå¦‚æœè¿‡æ²³äº†å°±è¡¥ä¸Šå‘å‰èµ°çš„ä¸€æ­¥
     return dest == getPawnForwardPos(src, side);
   default:
     return false;
   }
 }
 
-// ¼ì²éÖØ¸´×ß·¨
+// æ£€æŸ¥é‡å¤èµ°æ³•
 inline RepeatFlag PositionInfo::getRepeatFlag() {
-  // mySide´ú±íµÄÊÇÊÇ·ñÊÇµ÷ÓÃ±¾º¯ÊıµÄÄÇÒ»·½(ÏÂ³Æ"ÎÒ·½")
-  // ÒòÎªÒ»µ÷ÓÃËÑË÷¾ÍÂíÉÏµ÷ÓÃÁË±¾º¯Êı£¬ÎÒ·½Ã»ÓĞ×ßÆå
-  // ËùÒÔÔÚ¼ì²éÖØ¸´×ß·¨Ê±£¬ÀúÊ·×ß·¨±íÖĞ×îºóÒ»Ïî±£´æµÄÊÇ¶Ô·½µÄ×îºóÒ»²½
-  // ËùÒÔÕâ¸ö±äÁ¿µÄ³õÊ¼ÖµÎª¼Ù£¬´ú±íÕâÒ»²½²»ÊÇÎÒ·½£¬ÒòÎª×ß·¨´ÓºóÍùÇ°±éÀú
+  // mySideä»£è¡¨çš„æ˜¯æ˜¯å¦æ˜¯è°ƒç”¨æœ¬å‡½æ•°çš„é‚£ä¸€æ–¹(ä¸‹ç§°"æˆ‘æ–¹")
+  // å› ä¸ºä¸€è°ƒç”¨æœç´¢å°±é©¬ä¸Šè°ƒç”¨äº†æœ¬å‡½æ•°ï¼Œæˆ‘æ–¹æ²¡æœ‰èµ°æ£‹
+  // æ‰€ä»¥åœ¨æ£€æŸ¥é‡å¤èµ°æ³•æ—¶ï¼Œå†å²èµ°æ³•è¡¨ä¸­æœ€åä¸€é¡¹ä¿å­˜çš„æ˜¯å¯¹æ–¹çš„æœ€åä¸€æ­¥
+  // æ‰€ä»¥è¿™ä¸ªå˜é‡çš„åˆå§‹å€¼ä¸ºå‡ï¼Œä»£è¡¨è¿™ä¸€æ­¥ä¸æ˜¯æˆ‘æ–¹ï¼Œå› ä¸ºèµ°æ³•ä»åå¾€å‰éå†
   bool mySide{false};
-  // ÎÒ·½ÊÇ·ñ½«¾ü£¬¶Ô·½ÊÇ·ñ½«¾ü
+  // æˆ‘æ–¹æ˜¯å¦å°†å†›ï¼Œå¯¹æ–¹æ˜¯å¦å°†å†›
   bool myCheck{true}, oppCheck{true};
-  // Ö¸ÏòÀúÊ·×ß·¨±íµÄ×îºóÒ»Ïî£¬ÍùÇ°±éÀú
+  // æŒ‡å‘å†å²èµ°æ³•è¡¨çš„æœ€åä¸€é¡¹ï¼Œå¾€å‰éå†
   MoveItem *move = this->mHistoryMove + this->mHistorySize - 1;
-  // ±ØĞë±£Ö¤²½·¨ÓĞĞ§£¬Ò²¾ÍÊÇÃ»ÓĞµ½Í·²¿ÉÚ±ø»òÕß¿Õ²½²Ã¼ô´¦
-  // Èç¹ûÓöµ½¿Õ²½²Ã¼ô¾Í²»ÍùÏÂ¼ì²âÁË£¬ÒòÎª¿Õ²½ÎŞ·¨Ëã×÷ÓĞĞ§²½
-  // ²¢ÇÒÒªÇó²»ÊÇ³Ô×Ó²½£¬ÒòÎª³Ô×Ó¾Í´òÆÆ³¤½«ÁË
+  // å¿…é¡»ä¿è¯æ­¥æ³•æœ‰æ•ˆï¼Œä¹Ÿå°±æ˜¯æ²¡æœ‰åˆ°å¤´éƒ¨å“¨å…µæˆ–è€…ç©ºæ­¥è£å‰ªå¤„
+  // å¦‚æœé‡åˆ°ç©ºæ­¥è£å‰ªå°±ä¸å¾€ä¸‹æ£€æµ‹äº†ï¼Œå› ä¸ºç©ºæ­¥æ— æ³•ç®—ä½œæœ‰æ•ˆæ­¥
+  // å¹¶ä¸”è¦æ±‚ä¸æ˜¯åƒå­æ­¥ï¼Œå› ä¸ºåƒå­å°±æ‰“ç ´é•¿å°†äº†
   while (move->mMove not_eq INVALID_MOVE and not move->mVictim) {
     if (mySide) {
-      // Èç¹ûÊÇÎÒ·½£¬¸üĞÂÎÒ·½½«¾üĞÅÏ¢
+      // å¦‚æœæ˜¯æˆ‘æ–¹ï¼Œæ›´æ–°æˆ‘æ–¹å°†å†›ä¿¡æ¯
       myCheck &= move->mCheck;
-      // Èç¹û¼ì²âµ½¾ÖÃæÓëµ±Ç°¾ÖÃæÖØ¸´¾Í·µ»Ø×´Ì¬Âë
+      // å¦‚æœæ£€æµ‹åˆ°å±€é¢ä¸å½“å‰å±€é¢é‡å¤å°±è¿”å›çŠ¶æ€ç 
       if (move->mZobrist == this->mZobrist) {
         return 1 + (myCheck ? 2 : 0) + (oppCheck ? 4 : 0);
       }
     } else {
-      // Èç¹ûÊÇ¶Ô·½£¬¸üĞÂ¶Ô·½µÄ½«¾üĞÅÏ¢
+      // å¦‚æœæ˜¯å¯¹æ–¹ï¼Œæ›´æ–°å¯¹æ–¹çš„å°†å†›ä¿¡æ¯
       oppCheck &= move->mCheck;
     }
-    // ¸üĞÂÑ¡±ßĞÅÏ¢
+    // æ›´æ–°é€‰è¾¹ä¿¡æ¯
     mySide = not mySide;
-    // moveÖ¸ÏòÇ°Ò»¸ö×ß·¨
+    // moveæŒ‡å‘å‰ä¸€ä¸ªèµ°æ³•
     --move;
   }
-  // Ã»ÓĞÖØ¸´¾ÖÃæ
+  // æ²¡æœ‰é‡å¤å±€é¢
   return 0;
 }
 
-// ·µ»ØºÍÆåµÄ·ÖÖµ
+// è¿”å›å’Œæ£‹çš„åˆ†å€¼
 inline Score PositionInfo::getDrawScore() {
-  // ÎŞÂÛÈçºÎ¶¼ÒªÊ¹µÃºÍÆå¶ÔÓÚµÚÒ»²ãµÄÄÇÒ»·½À´ËµÊÇ²»ÀûµÄ£¬ÊÇ¸º·Ö
-  // DISTANCE & 1 µÄ×÷ÓÃÊÇÈ·¶¨ÏÖÔÚÔÚÄÇÒ»²ã
-  // ËµÃ÷evaluateµÄÄÇÒ»²ãºÍµÚÒ»²ãÊÇÍ¬Ò»·½
-  // Í¬Ò»·½·µ»Ø¸ºÖµ£¬²»Í¬·½·µ»ØÕıÖµ£¬ÕâÑùÕıÖµÉÏµ½µÚÒ»²ã¾Í»á±ä³É¸ºÖµ
+  // æ— è®ºå¦‚ä½•éƒ½è¦ä½¿å¾—å’Œæ£‹å¯¹äºç¬¬ä¸€å±‚çš„é‚£ä¸€æ–¹æ¥è¯´æ˜¯ä¸åˆ©çš„ï¼Œæ˜¯è´Ÿåˆ†
+  // DISTANCE & 1 çš„ä½œç”¨æ˜¯ç¡®å®šç°åœ¨åœ¨é‚£ä¸€å±‚
+  // è¯´æ˜evaluateçš„é‚£ä¸€å±‚å’Œç¬¬ä¸€å±‚æ˜¯åŒä¸€æ–¹
+  // åŒä¸€æ–¹è¿”å›è´Ÿå€¼ï¼Œä¸åŒæ–¹è¿”å›æ­£å€¼ï¼Œè¿™æ ·æ­£å€¼ä¸Šåˆ°ç¬¬ä¸€å±‚å°±ä¼šå˜æˆè´Ÿå€¼
   return this->mDistance & 1 ? -DRAW_SCORE : DRAW_SCORE;
 }
 
-// ´ÓÖØ¸´¼ì²é×´Ì¬ÂëÖĞÌáÈ¡·ÖÊı
+// ä»é‡å¤æ£€æŸ¥çŠ¶æ€ç ä¸­æå–åˆ†æ•°
 inline Score PositionInfo::scoreRepeatFlag(const RepeatFlag repeatFlag) {
-  // ÎÒ·½³¤½«·µ»Ø¸º·Ö£¬¶Ô·½³¤½«·µ»ØÕı·Ö
+  // æˆ‘æ–¹é•¿å°†è¿”å›è´Ÿåˆ†ï¼Œå¯¹æ–¹é•¿å°†è¿”å›æ­£åˆ†
   Score score = (repeatFlag & 2 ? BAN_SCORE_LOSS + this->mDistance : 0) +
                 (repeatFlag & 4 ? BAN_SCORE_MATE - this->mDistance : 0);
   if (score == 0) {
-    // Èç¹ûË«·½¶¼³¤½«»òÕßË«·½¶¼Ã»ÓĞ³¤½«µ«ÊÇÓĞÖØ¸´¾ÖÃæ
+    // å¦‚æœåŒæ–¹éƒ½é•¿å°†æˆ–è€…åŒæ–¹éƒ½æ²¡æœ‰é•¿å°†ä½†æ˜¯æœ‰é‡å¤å±€é¢
     return getDrawScore();
   } else {
-    // ÓĞÒ»·½³¤½«
+    // æœ‰ä¸€æ–¹é•¿å°†
     return score;
   }
 }
 
-// ¼ÆËãºì·½×ßÁËÄ³¸öÎ»ÖÃºóµÄ·ÖÊı
+// è®¡ç®—çº¢æ–¹èµ°äº†æŸä¸ªä½ç½®åçš„åˆ†æ•°
 inline void PositionInfo::calcRedMove(const Move move) {
   Position src{getSrc(move)}, dest{getDest(move)};
   Chess srcChess{this->mChessBoard[src]}, destChess{this->mChessBoard[dest]};
-  // Î»ÖÃ·Ö¼ÆËã
+  // ä½ç½®åˆ†è®¡ç®—
   this->mRedScore += RED_VALUE[srcChess][dest] - RED_VALUE[srcChess][src];
-  // Zobrist¼ÆËã
+  // Zobristè®¡ç®—
   this->mZobrist ^= CHESS_ZOBRIST[srcChess][src];
   this->mZobrist ^= CHESS_ZOBRIST[srcChess][dest];
   if (this->mChessBoard[dest]) {
@@ -1220,88 +1220,88 @@ inline void PositionInfo::calcRedMove(const Move move) {
   }
 }
 
-// ¼ÆËãºÚ·½×ßÁËÄ³¸öÎ»ÖÃºóµÄ·ÖÊı
+// è®¡ç®—é»‘æ–¹èµ°äº†æŸä¸ªä½ç½®åçš„åˆ†æ•°
 inline void PositionInfo::calcBlackMove(const Move move) {
   Position src{getSrc(move)}, dest{getDest(move)};
   Chess srcChess{this->mChessBoard[src]}, destChess{this->mChessBoard[dest]};
-  // Î»ÖÃ·Ö¼ÆËã
+  // ä½ç½®åˆ†è®¡ç®—
   this->mBlackScore += RED_VALUE[srcChess - BLACK][flipPosition(dest)] -
                        RED_VALUE[srcChess - BLACK][flipPosition(src)];
-  // Zobrist¼ÆËã
+  // Zobristè®¡ç®—
   this->mZobrist ^= CHESS_ZOBRIST[srcChess][src];
   this->mZobrist ^= CHESS_ZOBRIST[srcChess][dest];
-  // ³Ô×ÓÒª¼õµô¶ÔÓ¦µÄ·ÖÊı
+  // åƒå­è¦å‡æ‰å¯¹åº”çš„åˆ†æ•°
   if (this->mChessBoard[dest]) {
     this->mRedScore -= RED_VALUE[destChess][dest];
     this->mZobrist ^= CHESS_ZOBRIST[destChess][dest];
   }
 }
 
-// ¼ÆËãºì·½»¹Ô­ÁËÄ³Ò»²½ÆåºóµÄ·ÖÊı
+// è®¡ç®—çº¢æ–¹è¿˜åŸäº†æŸä¸€æ­¥æ£‹åçš„åˆ†æ•°
 inline void PositionInfo::calcRedUnMove(const Move move, const Chess victim) {
   Position src{getSrc(move)}, dest{getDest(move)};
   Chess destChess{this->mChessBoard[dest]};
-  // Î»ÖÃ·Ö¼ÆËã
+  // ä½ç½®åˆ†è®¡ç®—
   this->mRedScore += RED_VALUE[destChess][src] - RED_VALUE[destChess][dest];
-  // Zobrist¼ÆËã
+  // Zobristè®¡ç®—
   this->mZobrist ^= CHESS_ZOBRIST[destChess][dest];
   this->mZobrist ^= CHESS_ZOBRIST[destChess][src];
-  // °Ñ³ÔµôµÄ×ÓµÄ·ÖÊı¼Ó»ØÈ¥
+  // æŠŠåƒæ‰çš„å­çš„åˆ†æ•°åŠ å›å»
   if (victim not_eq EMPTY) {
     this->mBlackScore += RED_VALUE[victim - BLACK][flipPosition(dest)];
     this->mZobrist ^= CHESS_ZOBRIST[victim][dest];
   }
 }
 
-// ¼ÆËãºÚ·½»¹Ô­ÁËÄ³Ò»²½ÆåºóµÄ·ÖÊı
+// è®¡ç®—é»‘æ–¹è¿˜åŸäº†æŸä¸€æ­¥æ£‹åçš„åˆ†æ•°
 inline void PositionInfo::calcBlackUnMove(const Move move, const Chess victim) {
   Position src{getSrc(move)}, dest{getDest(move)};
   Chess destChess{this->mChessBoard[dest]};
-  // Î»ÖÃ·Ö¼ÆËã
+  // ä½ç½®åˆ†è®¡ç®—
   this->mBlackScore += RED_VALUE[destChess - BLACK][flipPosition(src)] -
                        RED_VALUE[destChess - BLACK][flipPosition(dest)];
-  // Zobrist¼ÆËã
+  // Zobristè®¡ç®—
   this->mZobrist ^= CHESS_ZOBRIST[destChess][dest];
   this->mZobrist ^= CHESS_ZOBRIST[destChess][src];
-  // °Ñ³ÔµôµÄ×ÓµÄ·ÖÊı¼Ó»ØÈ¥
+  // æŠŠåƒæ‰çš„å­çš„åˆ†æ•°åŠ å›å»
   if (victim not_eq EMPTY) {
     this->mRedScore += RED_VALUE[victim][dest];
     this->mZobrist ^= CHESS_ZOBRIST[victim][dest];
   }
 }
 
-// ¼ÆËã×ßÒ»²½µÄ·ÖÊıºÍZobrist
+// è®¡ç®—èµ°ä¸€æ­¥çš„åˆ†æ•°å’ŒZobrist
 inline void PositionInfo::calcMove(const Move move, const Side side) {
-  // ¿Ï¶¨»»±ßÁË
+  // è‚¯å®šæ¢è¾¹äº†
   this->mZobrist ^= SIDE_ZOBRIST;
   if (side == RED) {
-    // Èç¹ûÊÇºì·½×ßÆå
+    // å¦‚æœæ˜¯çº¢æ–¹èµ°æ£‹
     calcRedMove(move);
   } else {
-    // Èç¹ûÊÇºÚ·½×ßÆå
+    // å¦‚æœæ˜¯é»‘æ–¹èµ°æ£‹
     calcBlackMove(move);
   }
 }
 
-// ¼ÆËã³·Ïú×ßÒ»²½µÄ·ÖÊıºÍZobrist
+// è®¡ç®—æ’¤é”€èµ°ä¸€æ­¥çš„åˆ†æ•°å’ŒZobrist
 inline void PositionInfo::calcUnMove(const Move move, const Chess victim,
                                      const Side side) {
-  // ¿Ï¶¨»»±ßÁË
+  // è‚¯å®šæ¢è¾¹äº†
   this->mZobrist ^= SIDE_ZOBRIST;
   if (side == RED) {
-    // Èç¹ûÊÇºì·½×ßÆå
+    // å¦‚æœæ˜¯çº¢æ–¹èµ°æ£‹
     calcRedUnMove(move, victim);
   } else {
-    // Èç¹ûÊÇºÚ·½×ßÆå
+    // å¦‚æœæ˜¯é»‘æ–¹èµ°æ£‹
     calcBlackUnMove(move, victim);
   }
 }
 
 inline Score PositionInfo::evaluate(const Side side) {
   /*
-    ÎªºÎ´Ë´¦Òª¶îÍâ¼ÓÉÏÒ»¸öADVANCED_SCOREÏÈĞĞÆå·Ö£¿ÒòÎªÖ´ĞĞ¸Ãº¯ÊıÊ±±¾ÉíÊÇÂÖµ½¸Ã²ãÍæ¼Ò×ßÆå£¬
-    µ«ÊÇÒòÎª¸÷ÖÖÔ­ÒòÖ»ÄÜËÑË÷µ½ÕâÀïÁË£¬¸Ã²ãÍæ¼ÒÃ»ÓĞ×ßÆå¶øÖ±½Ó·µ»ØÁËÕâ¸ö¾ÖÃæÏÂ×Ô¼ºµÄÆÀ·Ö!
-    Êµ¼ÊÉÏÕâÑù¶ÔËûµÄÆÀ¼ÛÊÇ²»¹»ÕıÈ·µÄ£¬ËùÒÔ¼ÓÉÏÒ»¸ö²¹³¥·ÖÊı£¬´ú±íÏÂÒ»²½ÊÇ¸ÃÍæ¼ÒÏÈĞĞ£¬Ê¹µÃÆÀ¼Û¸ü¹«ÕıÒ»Ğ©!
+    ä¸ºä½•æ­¤å¤„è¦é¢å¤–åŠ ä¸Šä¸€ä¸ªADVANCED_SCOREå…ˆè¡Œæ£‹åˆ†ï¼Ÿå› ä¸ºæ‰§è¡Œè¯¥å‡½æ•°æ—¶æœ¬èº«æ˜¯è½®åˆ°è¯¥å±‚ç©å®¶èµ°æ£‹ï¼Œ
+    ä½†æ˜¯å› ä¸ºå„ç§åŸå› åªèƒ½æœç´¢åˆ°è¿™é‡Œäº†ï¼Œè¯¥å±‚ç©å®¶æ²¡æœ‰èµ°æ£‹è€Œç›´æ¥è¿”å›äº†è¿™ä¸ªå±€é¢ä¸‹è‡ªå·±çš„è¯„åˆ†!
+    å®é™…ä¸Šè¿™æ ·å¯¹ä»–çš„è¯„ä»·æ˜¯ä¸å¤Ÿæ­£ç¡®çš„ï¼Œæ‰€ä»¥åŠ ä¸Šä¸€ä¸ªè¡¥å¿åˆ†æ•°ï¼Œä»£è¡¨ä¸‹ä¸€æ­¥æ˜¯è¯¥ç©å®¶å…ˆè¡Œï¼Œä½¿å¾—è¯„ä»·æ›´å…¬æ­£ä¸€äº›!
   */
   if (side == RED) {
     return this->mRedScore - this->mBlackScore + ADVANCED_SCORE;
@@ -1310,55 +1310,55 @@ inline Score PositionInfo::evaluate(const Side side) {
   }
 }
 
-// ËÑË÷ÖÃ»»±í
+// æœç´¢ç½®æ¢è¡¨
 Score PositionInfo::probeHash(Score alpha, Score beta, Depth depth,
                               Move &hashMove) {
-  // É±ÆåµÄ±êÖ¾£¬Èç¹ûÉ±ÆåÁË¾Í²»ÓÃÂú×ãÉî¶ÈÌõ¼ş
+  // æ€æ£‹çš„æ ‡å¿—ï¼Œå¦‚æœæ€æ£‹äº†å°±ä¸ç”¨æ»¡è¶³æ·±åº¦æ¡ä»¶
   bool isMate{false};
-  // ÌáÈ¡ÖÃ»»±íÏî£¬ÉÏËø
+  // æå–ç½®æ¢è¡¨é¡¹ï¼Œä¸Šé”
   HashItem &hashItemRef = HASH_TABLE[this->mZobrist & HASH_MASK];
-  // ÉÏËø²¢¸´ÖÆÖÃ»»±íÏî£¬×¢Òâµ½ÕâÀï²»Ö±½ÓÊ¹ÓÃÉÏÃæµÄÒıÓÃ£¬ÒòÎªÏÂÃæÒª¶Ô·ÖÊı½øĞĞĞŞ¸Ä
+  // ä¸Šé”å¹¶å¤åˆ¶ç½®æ¢è¡¨é¡¹ï¼Œæ³¨æ„åˆ°è¿™é‡Œä¸ç›´æ¥ä½¿ç”¨ä¸Šé¢çš„å¼•ç”¨ï¼Œå› ä¸ºä¸‹é¢è¦å¯¹åˆ†æ•°è¿›è¡Œä¿®æ”¹
   hashItemRef.mHashItemLock.lockForRead();
   HashItem hashItem = hashItemRef;
   hashItemRef.mHashItemLock.unlock();
-  // Ğ£Ñé¸ßÎ»zobristÊÇ·ñ¶ÔÓ¦µÃÉÏ
+  // æ ¡éªŒé«˜ä½zobristæ˜¯å¦å¯¹åº”å¾—ä¸Š
   if (this->mZobrist not_eq hashItem.mZobrist) {
     hashMove = INVALID_MOVE;
     return LOSS_SCORE;
   }
-  // ½«×ß·¨±£´æÏÂÀ´
+  // å°†èµ°æ³•ä¿å­˜ä¸‹æ¥
   hashMove = hashItem.mMove;
   if (hashItem.mScore > WIN_SCORE) {
     if (hashItem.mScore < BAN_SCORE_MATE) {
-      // ÓĞ¿ÉÄÜ»áµ¼ÖÂËÑË÷µÄ²»ÎÈ¶¨ĞÔ£¬ÒòÎªÕâ¸ö³¤½«µÄ·ÖÊı¿ÉÄÜÀ´×ÔÓÚÁíÍâÒ»Ìõ²»Í¬µÄËÑË÷·ÖÖ§
+      // æœ‰å¯èƒ½ä¼šå¯¼è‡´æœç´¢çš„ä¸ç¨³å®šæ€§ï¼Œå› ä¸ºè¿™ä¸ªé•¿å°†çš„åˆ†æ•°å¯èƒ½æ¥è‡ªäºå¦å¤–ä¸€æ¡ä¸åŒçš„æœç´¢åˆ†æ”¯
       return LOSS_SCORE;
     }
-    // ÕæµÄÓ®ÁË
+    // çœŸçš„èµ¢äº†
     isMate = true;
-    // ¸ø·ÖÊıÌí¼Ó×î¶Ì²ãÊıĞÅÏ¢
+    // ç»™åˆ†æ•°æ·»åŠ æœ€çŸ­å±‚æ•°ä¿¡æ¯
     hashItem.mScore -= this->mDistance;
   } else if (hashItem.mScore < LOST_SCORE) {
     if (hashItem.mScore > BAN_SCORE_LOSS) {
-      // ÀíÓÉÍ¬ÉÏ
+      // ç†ç”±åŒä¸Š
       return LOSS_SCORE;
     }
-    // ÕæµÄÊäÁË
+    // çœŸçš„è¾“äº†
     isMate = true;
-    // ¸ø·ÖÊıÌí¼Ó×î¶Ì²ãÊıĞÅÏ¢
+    // ç»™åˆ†æ•°æ·»åŠ æœ€çŸ­å±‚æ•°ä¿¡æ¯
     hashItem.mScore += this->mDistance;
   }
-  // ÅĞ¶Ï¸Ã×ß·¨ÊÇ·ñÂú×ãÉî¶ÈÌõ¼ş£¬¼´½á¹û±Èµ±Ç°µÄËÑË÷²ãÊıÍ¬²ã»òÕß¸üÉî
-  // Èç¹ûÓ®ÁË¾Í²»ÓÃÂú×ãÉî¶ÈÌõ¼ş
+  // åˆ¤æ–­è¯¥èµ°æ³•æ˜¯å¦æ»¡è¶³æ·±åº¦æ¡ä»¶ï¼Œå³ç»“æœæ¯”å½“å‰çš„æœç´¢å±‚æ•°åŒå±‚æˆ–è€…æ›´æ·±
+  // å¦‚æœèµ¢äº†å°±ä¸ç”¨æ»¡è¶³æ·±åº¦æ¡ä»¶
   if (hashItem.mDepth >= depth || isMate) {
     if (hashItem.mFlag == HASH_BETA) {
       /*
-       * Èç¹ûÊÇbeta×ß·¨£¬ËµÃ÷ÔÚÍ¬²ã»ò¸ß²ãÖĞËÑË÷¸Ã¾ÖÃæ×ß¸Ã×ß·¨Ê±·¢ÉúÁËbeta½Ø¶Ï
-       * ÄÇÃ´²é¿´Ò»ÏÂÔÚµ±Ç°µÄbetaÏÂ×ß¸Ã×ß·¨ÊÇ·ñÒ²¿ÉÒÔ·¢Éú½Ø¶Ï£¬¼Èscore >= beta
-       * ¼´ÊÇ·ñ³¬³öalpha-betaµÄ±ß½ç(alpha, beta)(here)
-       * Èç¹ûÃşµ½»ò³¬¹ıµ±Ç°beta±ß½ç¼´¿É½Ø¶Ï
-       * Èç¹ûÃ»ÓĞ³¬¹ıbeta£¬ÄÇÃ´²»ÄÜÖ±½Ó·µ»Øscore
-       * ÒòÎª¼ÈÈ»Í¬²ã»ò¸ß²ã·¢ÉúÁËbeta½Ø¶Ï£¬ÄÇÃ´¾ÍÓĞ¿ÉÄÜÃ»ÓĞËÑË÷Íê¸Ã¾ÖÃæÏÂµÄËùÓĞ×ß·¨£¬·ÖÊı²»Ò»¶¨¾ß±¸²Î¿¼ĞÔ
-       * µ«ÊÇÕâ¸ö×ß·¨ÄÜÖ±½Ó·µ»Ø£¬ÒòÎªÓĞÖúÓÚ¸ü¿ìËÙµÄËõĞ¡µ±Ç°µÄalpha-beta·¶Î§
+       * å¦‚æœæ˜¯betaèµ°æ³•ï¼Œè¯´æ˜åœ¨åŒå±‚æˆ–é«˜å±‚ä¸­æœç´¢è¯¥å±€é¢èµ°è¯¥èµ°æ³•æ—¶å‘ç”Ÿäº†betaæˆªæ–­
+       * é‚£ä¹ˆæŸ¥çœ‹ä¸€ä¸‹åœ¨å½“å‰çš„betaä¸‹èµ°è¯¥èµ°æ³•æ˜¯å¦ä¹Ÿå¯ä»¥å‘ç”Ÿæˆªæ–­ï¼Œæ—¢score >= beta
+       * å³æ˜¯å¦è¶…å‡ºalpha-betaçš„è¾¹ç•Œ(alpha, beta)(here)
+       * å¦‚æœæ‘¸åˆ°æˆ–è¶…è¿‡å½“å‰betaè¾¹ç•Œå³å¯æˆªæ–­
+       * å¦‚æœæ²¡æœ‰è¶…è¿‡betaï¼Œé‚£ä¹ˆä¸èƒ½ç›´æ¥è¿”å›score
+       * å› ä¸ºæ—¢ç„¶åŒå±‚æˆ–é«˜å±‚å‘ç”Ÿäº†betaæˆªæ–­ï¼Œé‚£ä¹ˆå°±æœ‰å¯èƒ½æ²¡æœ‰æœç´¢å®Œè¯¥å±€é¢ä¸‹çš„æ‰€æœ‰èµ°æ³•ï¼Œåˆ†æ•°ä¸ä¸€å®šå…·å¤‡å‚è€ƒæ€§
+       * ä½†æ˜¯è¿™ä¸ªèµ°æ³•èƒ½ç›´æ¥è¿”å›ï¼Œå› ä¸ºæœ‰åŠ©äºæ›´å¿«é€Ÿçš„ç¼©å°å½“å‰çš„alpha-betaèŒƒå›´
        */
       if (hashItem.mScore >= beta) {
         return hashItem.mScore;
@@ -1367,15 +1367,15 @@ Score PositionInfo::probeHash(Score alpha, Score beta, Depth depth,
       }
     } else if (hashItem.mFlag == HASH_ALPHA) {
       /*
-       * Èç¹ûÊÇalpha×ß·¨£¬ËµÃ÷ÔÚÍ¬²ã»òÕßÉÏ²ãµÄËÑË÷ÖĞ±éÀúÁË¾ÖÃæÖĞµÄËùÓĞ×ß·¨
-       * ²¢ÇÒµÃµ½µÄ×îºÃµÄ×ß·¨ÊÇalpha×ß·¨£¬·ÖÊıÎŞ·¨³¬¹ıÄÇ²ãµÄalpha
-       * ÄÇÃ´²é¿´Ò»ÏÂÔÚµ±Ç°µÄalphaÏÂÊÇ·ñÒ²ÎŞ·¨³¬¹ıµ±Ç°µÄalpha£¬¼Èscore <= alpha
-       * ¼´ÊÇ·ñ³¬³öalpha-betaµÄ±ß½ç(here)(alpha, beta)
-       * Èç¹ûÃşµ½»òĞ¡ÓÚµ±Ç°alpha¼´¿É½Ø¶Ï
-       * Èç¹û´óÓÚalpha£¬ÄÇÃ´²»ÄÜÖ±½Ó·µ»Øscore
-       * ÒòÎªÈç¹ûËüÔÚalpha-beta·¶Î§ÄÚ£¬ÄÇÃ´Ëü¾Í²»ÊÇalpha×ß·¨£¬ÖµµÃËÑË÷Ò»ÏÂ
-       * ·µ»Ø¸Ã×ß·¨ÓĞÖúÓÚ¸ü¿ìËÙµÄËõĞ¡µ±Ç°µÄalpha-beta·¶Î§
-       * Èç¹ûËüÉõÖÁ³¬¹ıÁËbeta£¬ÄÇÃ´Õâ¸ö×ß·¨¾Í¿ÉÒÔ·¢Éúbeta½Ø¶Ï
+       * å¦‚æœæ˜¯alphaèµ°æ³•ï¼Œè¯´æ˜åœ¨åŒå±‚æˆ–è€…ä¸Šå±‚çš„æœç´¢ä¸­éå†äº†å±€é¢ä¸­çš„æ‰€æœ‰èµ°æ³•
+       * å¹¶ä¸”å¾—åˆ°çš„æœ€å¥½çš„èµ°æ³•æ˜¯alphaèµ°æ³•ï¼Œåˆ†æ•°æ— æ³•è¶…è¿‡é‚£å±‚çš„alpha
+       * é‚£ä¹ˆæŸ¥çœ‹ä¸€ä¸‹åœ¨å½“å‰çš„alphaä¸‹æ˜¯å¦ä¹Ÿæ— æ³•è¶…è¿‡å½“å‰çš„alphaï¼Œæ—¢score <= alpha
+       * å³æ˜¯å¦è¶…å‡ºalpha-betaçš„è¾¹ç•Œ(here)(alpha, beta)
+       * å¦‚æœæ‘¸åˆ°æˆ–å°äºå½“å‰alphaå³å¯æˆªæ–­
+       * å¦‚æœå¤§äºalphaï¼Œé‚£ä¹ˆä¸èƒ½ç›´æ¥è¿”å›score
+       * å› ä¸ºå¦‚æœå®ƒåœ¨alpha-betaèŒƒå›´å†…ï¼Œé‚£ä¹ˆå®ƒå°±ä¸æ˜¯alphaèµ°æ³•ï¼Œå€¼å¾—æœç´¢ä¸€ä¸‹
+       * è¿”å›è¯¥èµ°æ³•æœ‰åŠ©äºæ›´å¿«é€Ÿçš„ç¼©å°å½“å‰çš„alpha-betaèŒƒå›´
+       * å¦‚æœå®ƒç”šè‡³è¶…è¿‡äº†betaï¼Œé‚£ä¹ˆè¿™ä¸ªèµ°æ³•å°±å¯ä»¥å‘ç”Ÿbetaæˆªæ–­
        */
       if (hashItem.mScore <= alpha) {
         return hashItem.mScore;
@@ -1384,111 +1384,111 @@ Score PositionInfo::probeHash(Score alpha, Score beta, Depth depth,
       }
     }
     /*
-     * ÔÚÍ¬²ã»òÕßÉÏ²ãµÄËÑË÷ÖĞ±éÀúÁË¾ÖÃæÖĞµÄËùÓĞ×ß·¨£¬ÕÒµ½ÁËpv×ß·¨£¬ËùÒÔ¾ÍÊÇÕâ¸ö·ÖÊıÁË£¡Ö±½Ó·µ»Ø¼´¿É¡£
+     * åœ¨åŒå±‚æˆ–è€…ä¸Šå±‚çš„æœç´¢ä¸­éå†äº†å±€é¢ä¸­çš„æ‰€æœ‰èµ°æ³•ï¼Œæ‰¾åˆ°äº†pvèµ°æ³•ï¼Œæ‰€ä»¥å°±æ˜¯è¿™ä¸ªåˆ†æ•°äº†ï¼ç›´æ¥è¿”å›å³å¯ã€‚
      */
     return hashItem.mScore;
   }
-  // ²»Âú×ãÉî¶ÈÌõ¼ş²¢ÇÒ²»ÊÇÉ±Æå
+  // ä¸æ»¡è¶³æ·±åº¦æ¡ä»¶å¹¶ä¸”ä¸æ˜¯æ€æ£‹
   return LOSS_SCORE;
 }
 
-// ±£´æµ½ÖÃ»»±í
+// ä¿å­˜åˆ°ç½®æ¢è¡¨
 void PositionInfo::recordHash(HashItem &hashItem, HashFlag hashFlag, Score score, Depth depth,
                               Move move) {
-  // ²é¿´ÖÃ»»±íÖĞµÄÏîÊÇ·ñ±Èµ±Ç°Ïî¸ü¼Ó×¼È·
+  // æŸ¥çœ‹ç½®æ¢è¡¨ä¸­çš„é¡¹æ˜¯å¦æ¯”å½“å‰é¡¹æ›´åŠ å‡†ç¡®
   if (hashItem.mDepth > depth) {
     return;
   }
-  // ²»È»¾Í±£´æÖÃ»»±í±êÖ¾ºÍÉî¶È
+  // ä¸ç„¶å°±ä¿å­˜ç½®æ¢è¡¨æ ‡å¿—å’Œæ·±åº¦
   hashItem.mFlag = hashFlag;
   hashItem.mDepth = depth;
   if (score > WIN_SCORE) {
     if (move == INVALID_MOVE && score <= BAN_SCORE_MATE) {
-      // ¿ÉÄÜµ¼ÖÂËÑË÷µÄ²»ÎÈ¶¨ĞÔ£¬²¢ÇÒÃ»ÓĞ×î¼Ñ×Å·¨£¬Á¢¿ÌÍË³ö
+      // å¯èƒ½å¯¼è‡´æœç´¢çš„ä¸ç¨³å®šæ€§ï¼Œå¹¶ä¸”æ²¡æœ‰æœ€ä½³ç€æ³•ï¼Œç«‹åˆ»é€€å‡º
       return;
     }
-    // ·ñÔò¾Í¼ÇÂ¼·ÖÊı£¬Ïû³ı·ÖÊıµÄ×î¶Ì²ãÊıĞÅÏ¢
+    // å¦åˆ™å°±è®°å½•åˆ†æ•°ï¼Œæ¶ˆé™¤åˆ†æ•°çš„æœ€çŸ­å±‚æ•°ä¿¡æ¯
     hashItem.mScore = score + this->mDistance;
   } else if (score < LOST_SCORE) {
     if (move == INVALID_MOVE && score >= BAN_SCORE_LOSS) {
-      // Í¬ÉÏ
+      // åŒä¸Š
       return;
     }
     hashItem.mScore = score - this->mDistance;
   } else {
-    // ²»ÊÇÉ±ÆåÊ±Ö±½Ó¼ÇÂ¼·ÖÊı
+    // ä¸æ˜¯æ€æ£‹æ—¶ç›´æ¥è®°å½•åˆ†æ•°
     hashItem.mScore = score;
   }
-  // ¼ÇÂ¼×ß·¨
+  // è®°å½•èµ°æ³•
   hashItem.mMove = move;
-  // ¼ÇÂ¼Zobrist
+  // è®°å½•Zobrist
   hashItem.mZobrist = this->mZobrist;
 }
 
-// ÓÃÓÚÉèÖÃÀúÊ·±í¡¢É±ÊÖ±í
+// ç”¨äºè®¾ç½®å†å²è¡¨ã€æ€æ‰‹è¡¨
 inline void PositionInfo::setBestMove(const Move move, const Depth depth) {
   if (this->mKiller[this->mDistance][0] not_eq move) {
     this->mKiller[this->mDistance][1] = this->mKiller[this->mDistance][0];
     this->mKiller[this->mDistance][0] = move;
   }
-  // ²»ÊÇ³Ô×Ó×ß·¨²Å±£´æµ½ÀúÊ·±í
+  // ä¸æ˜¯åƒå­èµ°æ³•æ‰ä¿å­˜åˆ°å†å²è¡¨
   this->mHistory[move] += depth * depth;
 }
 
-// ³Ô×Ó×ß·¨Éú³É
+// åƒå­èµ°æ³•ç”Ÿæˆ
 Count PositionInfo::captureMoveGen(MoveList &moves, const Side side, const Count startCount) {
   Count totalMoves{startCount};
-  // ±éÀúÆåÅÌ
+  // éå†æ£‹ç›˜
   for (Position start{51}; start < 204; start += 16) {
     for (Position pos{start}; pos < start + 9; ++pos) {
-      // ÕÒµ½×Ô¼ºµÄÆå×Ó
+      // æ‰¾åˆ°è‡ªå·±çš„æ£‹å­
       if (this->mChessBoard[pos] and getChessSide(pos) == side) {
         switch (this->mChessBoard[pos] - side) {
-        // Èç¹ûÊÇ½«
+        // å¦‚æœæ˜¯å°†
         case KING:
           for (const auto &delta : KING_DELTA) {
-            // ¶ÔÓÚÃ¿Ò»¸ö²½³¤£¬²é¿´ÉÏÃæÊÇ²»ÊÇ¶Ô·½µÄÆå×Ó
+            // å¯¹äºæ¯ä¸€ä¸ªæ­¥é•¿ï¼ŒæŸ¥çœ‹ä¸Šé¢æ˜¯ä¸æ˜¯å¯¹æ–¹çš„æ£‹å­
             if (IN_SQRT[pos + delta] and isOppChess(pos + delta, side)) {
               moves[totalMoves++] = toCapMove(pos, pos + delta, side);
             }
           }
           break;
 
-        // Èç¹ûÊÇÊ¿
+        // å¦‚æœæ˜¯å£«
         case ADVISOR:
           for (const auto &delta : ADVISOR_DELTA) {
-            // ¶ÔÓÚÃ¿Ò»¸ö²½³¤£¬²é¿´ÉÏÃæÊÇ²»ÊÇ¶Ô·½µÄÆå×Ó
+            // å¯¹äºæ¯ä¸€ä¸ªæ­¥é•¿ï¼ŒæŸ¥çœ‹ä¸Šé¢æ˜¯ä¸æ˜¯å¯¹æ–¹çš„æ£‹å­
             if (IN_SQRT[pos + delta] and isOppChess(pos + delta, side)) {
-              // Ã»ÓĞÆå×Ó»òÕß²»ÊÇ×Ô¼ºµÄÆå×Ó
+              // æ²¡æœ‰æ£‹å­æˆ–è€…ä¸æ˜¯è‡ªå·±çš„æ£‹å­
               moves[totalMoves++] = toCapMove(pos, pos + delta, side);
             }
           }
           break;
 
-        // Èç¹ûÊÇÏó
+        // å¦‚æœæ˜¯è±¡
         case BISHOP:
           for (Index index{0}; index < 4; ++index) {
             Delta delta = BISHOP_DELTA[index];
             Delta pin = BISHOP_PIN[index];
-            // ¶ÔÓÚÃ¿Ò»¸ö²½³¤£¬ÏÈ¿´ÊÇ·ñÔÚ×Ô¼ºµÄ°ë±ßÄÚ£¬ÓĞÃ»ÓĞÈû×¡ÏóÑÛ£¬ÔÙ²é¿´ÉÏÃæÊÇ²»ÊÇ¶Ô·½µÄÆå×Ó
+            // å¯¹äºæ¯ä¸€ä¸ªæ­¥é•¿ï¼Œå…ˆçœ‹æ˜¯å¦åœ¨è‡ªå·±çš„åŠè¾¹å†…ï¼Œæœ‰æ²¡æœ‰å¡ä½è±¡çœ¼ï¼Œå†æŸ¥çœ‹ä¸Šé¢æ˜¯ä¸æ˜¯å¯¹æ–¹çš„æ£‹å­
             if (isMyHalf(pos + delta, side) and isEmpty(pos + pin) and
                 isOppChess(pos + delta, side)) {
-              // Ã»ÓĞÆå×Ó»òÕß²»ÊÇ×Ô¼ºµÄÆå×Ó
+              // æ²¡æœ‰æ£‹å­æˆ–è€…ä¸æ˜¯è‡ªå·±çš„æ£‹å­
               moves[totalMoves++] = toCapMove(pos, pos + delta, side);
             }
           }
           break;
 
-        // Èç¹ûÊÇÂí
+        // å¦‚æœæ˜¯é©¬
         case KNIGHT:
           for (Index index{0}; index < 4; ++index) {
-            // ÏÈ¿´ÂíÍÈÓĞÃ»ÓĞÔÚÆåÅÌÀï£¬²¢ÇÒÓĞÃ»ÓĞ±ïÂíÍÈ
-            // ÂíÍÈ³¬³ö·¶Î§»òÕßõ¿ÂíÍÈÁË¾ÍÖ±½ÓÏÂÒ»ÂÖ£¬±ÜÃâÔÚÏÂÒ»¸öforÑ­»·ÀïÃæÅĞ¶ÏÁ½´Î
+            // å…ˆçœ‹é©¬è…¿æœ‰æ²¡æœ‰åœ¨æ£‹ç›˜é‡Œï¼Œå¹¶ä¸”æœ‰æ²¡æœ‰æ†‹é©¬è…¿
+            // é©¬è…¿è¶…å‡ºèŒƒå›´æˆ–è€…è¹©é©¬è…¿äº†å°±ç›´æ¥ä¸‹ä¸€è½®ï¼Œé¿å…åœ¨ä¸‹ä¸€ä¸ªforå¾ªç¯é‡Œé¢åˆ¤æ–­ä¸¤æ¬¡
             if (IN_BOARD[pos + KNIGHT_PIN[index]] and isEmpty(pos + KNIGHT_PIN[index])) {
               for (const auto &delta : KNIGHT_DELTA[index]) {
-                // ¶ÔÓÚÃ¿Ò»¸ö²½³¤£¬ÏÈ¿´ÊÇ·ñÔÚÆåÅÌÄÚ£¬ÔÙ²é¿´ÉÏÃæÊÇ²»ÊÇ¶Ô·½µÄÆå×Ó
+                // å¯¹äºæ¯ä¸€ä¸ªæ­¥é•¿ï¼Œå…ˆçœ‹æ˜¯å¦åœ¨æ£‹ç›˜å†…ï¼Œå†æŸ¥çœ‹ä¸Šé¢æ˜¯ä¸æ˜¯å¯¹æ–¹çš„æ£‹å­
                 if (IN_BOARD[pos + delta] and isOppChess(pos + delta, side)) {
-                  // Ã»ÓĞÆå×Ó»òÕß²»ÊÇ×Ô¼ºµÄÆå×Ó
+                  // æ²¡æœ‰æ£‹å­æˆ–è€…ä¸æ˜¯è‡ªå·±çš„æ£‹å­
                   moves[totalMoves++] = toCapMove(pos, pos + delta, side);
                 }
               }
@@ -1496,21 +1496,21 @@ Count PositionInfo::captureMoveGen(MoveList &moves, const Side side, const Count
           }
           break;
 
-        // Èç¹ûÊÇ±ø
+        // å¦‚æœæ˜¯å…µ
         case PAWN:
           if (isMyHalf(pos, side)) {
-            // Èç¹ûÃ»¹ıºÓ
+            // å¦‚æœæ²¡è¿‡æ²³
             Delta delta{getChessSide(pos) == RED ? RED_PAWN_DELTA : BLACK_PAWN_DELTA};
-            // ¼ì²éËùµ½Ö®´¦ÊÇ·ñÔÚÆåÅÌÄÚ£¬²é¿´ÉÏÃæÊÇ²»ÊÇ¶Ô·½µÄÆå×Ó
+            // æ£€æŸ¥æ‰€åˆ°ä¹‹å¤„æ˜¯å¦åœ¨æ£‹ç›˜å†…ï¼ŒæŸ¥çœ‹ä¸Šé¢æ˜¯ä¸æ˜¯å¯¹æ–¹çš„æ£‹å­
             if (IN_BOARD[pos + delta] and isOppChess(pos + delta, side)) {
               moves[totalMoves++] = toCapMove(pos, pos + delta, side);
             }
           } else {
-            // ¹ıºÓÁË
+            // è¿‡æ²³äº†
             for (const auto &delta : getChessSide(pos) == RED
                                          ? PROMOTED_RED_PAWN_DELTA
                                          : PROMOTED_BLACK_PAWN_DELTA) {
-              // ¼ì²éËùµ½Ö®´¦ÊÇ·ñÔÚÆåÅÌÄÚ£¬²é¿´ÉÏÃæÊÇ²»ÊÇ¶Ô·½µÄÆå×Ó
+              // æ£€æŸ¥æ‰€åˆ°ä¹‹å¤„æ˜¯å¦åœ¨æ£‹ç›˜å†…ï¼ŒæŸ¥çœ‹ä¸Šé¢æ˜¯ä¸æ˜¯å¯¹æ–¹çš„æ£‹å­
               if (IN_BOARD[pos + delta] and isOppChess(pos + delta, side)) {
                 moves[totalMoves++] = toCapMove(pos, pos + delta, side);
               }
@@ -1518,31 +1518,31 @@ Count PositionInfo::captureMoveGen(MoveList &moves, const Side side, const Count
           }
           break;
 
-        // Èç¹ûÊÇ³µ
+        // å¦‚æœæ˜¯è½¦
         case ROOK:
           for (const auto &delta : LINE_CHESS_DELTA) {
             Position cur = pos + delta;
-            // Èç¹û¸ÃÎ»ÖÃÎª¿Õ
+            // å¦‚æœè¯¥ä½ç½®ä¸ºç©º
             while (IN_BOARD[cur] and isEmpty(cur)) cur += delta;
-            // ¿ÉÄÜ³¬³öÆåÅÌ»òÕßÅöµ½ÁËÒ»¸öÆå×Ó
+            // å¯èƒ½è¶…å‡ºæ£‹ç›˜æˆ–è€…ç¢°åˆ°äº†ä¸€ä¸ªæ£‹å­
             if (IN_BOARD[cur] and getChessSide(cur) not_eq side) {
               moves[totalMoves++] = toCapMove(pos, cur, side);
             }
           }
           break;
 
-        // Èç¹ûÊÇÅÚ
+        // å¦‚æœæ˜¯ç‚®
         case CANNON:
           for (const auto &delta : LINE_CHESS_DELTA) {
             Position cur = pos + delta;
-            // Èç¹û¸ÃÎ»ÖÃÎª¿Õ
+            // å¦‚æœè¯¥ä½ç½®ä¸ºç©º
             while (IN_BOARD[cur] and isEmpty(cur)) cur += delta;
-            // Åöµ½ÁËµÚÒ»¸öÆå×Ó»òÕß³¬³öÆåÅÌ
+            // ç¢°åˆ°äº†ç¬¬ä¸€ä¸ªæ£‹å­æˆ–è€…è¶…å‡ºæ£‹ç›˜
             cur += delta;
             while (IN_BOARD[cur] and isEmpty(cur)) {
               cur += delta;
             }
-            // Åöµ½ÁËµÚ¶ş¸öÆå×Ó»òÕß³¬³öÆåÅÌ
+            // ç¢°åˆ°äº†ç¬¬äºŒä¸ªæ£‹å­æˆ–è€…è¶…å‡ºæ£‹ç›˜
             if (IN_BOARD[cur] and getChessSide(cur) not_eq side) {
               moves[totalMoves++] = toCapMove(pos, cur, side);
             }
@@ -1555,41 +1555,41 @@ Count PositionInfo::captureMoveGen(MoveList &moves, const Side side, const Count
   return totalMoves;
 }
 
-// ²»³Ô×Ó×ß·¨Éú³É
+// ä¸åƒå­èµ°æ³•ç”Ÿæˆ
 Count PositionInfo::nonCaptureMoveGen(MoveList &moves, const Side side, const Count startCount) {
   Count totalMoves{startCount};
-  // ±éÀúÆåÅÌ
+  // éå†æ£‹ç›˜
   for (Position start{51}; start < 204; start += 16) {
     for (Position pos{start}; pos < start + 9; ++pos) {
-      // ÕÒµ½×Ô¼ºµÄÆå×Ó
+      // æ‰¾åˆ°è‡ªå·±çš„æ£‹å­
       if (this->mChessBoard[pos] and getChessSide(pos) == side) {
         switch (this->mChessBoard[pos] - side) {
-        // Èç¹ûÊÇ½«
+        // å¦‚æœæ˜¯å°†
         case KING:
           for (const auto &delta : KING_DELTA) {
-            // ¶ÔÓÚÃ¿Ò»¸ö²½³¤£¬²é¿´ÉÏÃæÊÇ²»ÊÇ¿ÕµÄ
+            // å¯¹äºæ¯ä¸€ä¸ªæ­¥é•¿ï¼ŒæŸ¥çœ‹ä¸Šé¢æ˜¯ä¸æ˜¯ç©ºçš„
             if (IN_SQRT[pos + delta] and isEmpty(pos + delta)) {
               moves[totalMoves++] = toNonCapMove(pos, pos + delta);
             }
           }
           break;
 
-        // Èç¹ûÊÇÊ¿
+        // å¦‚æœæ˜¯å£«
         case ADVISOR:
           for (const auto &delta : ADVISOR_DELTA) {
-            // ¶ÔÓÚÃ¿Ò»¸ö²½³¤£¬²é¿´ÉÏÃæÊÇ²»ÊÇ¿ÕµÄ
+            // å¯¹äºæ¯ä¸€ä¸ªæ­¥é•¿ï¼ŒæŸ¥çœ‹ä¸Šé¢æ˜¯ä¸æ˜¯ç©ºçš„
             if (IN_SQRT[pos + delta] and isEmpty(pos + delta)) {
               moves[totalMoves++] = toNonCapMove(pos, pos + delta);
             }
           }
           break;
 
-        // Èç¹ûÊÇÏó
+        // å¦‚æœæ˜¯è±¡
         case BISHOP:
           for (Index index{0}; index < 4; ++index) {
             Delta delta = BISHOP_DELTA[index];
             Delta pin = BISHOP_PIN[index];
-            // ¶ÔÓÚÃ¿Ò»¸ö²½³¤£¬ÏÈ¿´ÊÇ·ñÔÚ×Ô¼ºµÄ°ë±ßÄÚ£¬ÓĞÃ»ÓĞÈû×¡ÏóÑÛ£¬ÔÙ²é¿´ÉÏÃæÊÇ²»ÊÇ¿ÕµÄ
+            // å¯¹äºæ¯ä¸€ä¸ªæ­¥é•¿ï¼Œå…ˆçœ‹æ˜¯å¦åœ¨è‡ªå·±çš„åŠè¾¹å†…ï¼Œæœ‰æ²¡æœ‰å¡ä½è±¡çœ¼ï¼Œå†æŸ¥çœ‹ä¸Šé¢æ˜¯ä¸æ˜¯ç©ºçš„
             if (isMyHalf(pos + delta, side) and isEmpty(pos + pin) and
                 isEmpty(pos + delta)) {
               moves[totalMoves++] = toNonCapMove(pos, pos + delta);
@@ -1597,16 +1597,16 @@ Count PositionInfo::nonCaptureMoveGen(MoveList &moves, const Side side, const Co
           }
           break;
 
-        // Èç¹ûÊÇÂí
+        // å¦‚æœæ˜¯é©¬
         case KNIGHT:
           for (Index index{0}; index < 4; ++index) {
-            // ÏÈ¿´ÂíÍÈÓĞÃ»ÓĞÔÚÆåÅÌÀï£¬²¢ÇÒÓĞÃ»ÓĞ±ïÂíÍÈ
-            // ÂíÍÈ³¬³ö·¶Î§»òÕßõ¿ÂíÍÈÁË¾ÍÖ±½ÓÏÂÒ»ÂÖ£¬±ÜÃâÔÚÏÂÒ»¸öforÑ­»·ÀïÃæÅĞ¶ÏÁ½´Î
+            // å…ˆçœ‹é©¬è…¿æœ‰æ²¡æœ‰åœ¨æ£‹ç›˜é‡Œï¼Œå¹¶ä¸”æœ‰æ²¡æœ‰æ†‹é©¬è…¿
+            // é©¬è…¿è¶…å‡ºèŒƒå›´æˆ–è€…è¹©é©¬è…¿äº†å°±ç›´æ¥ä¸‹ä¸€è½®ï¼Œé¿å…åœ¨ä¸‹ä¸€ä¸ªforå¾ªç¯é‡Œé¢åˆ¤æ–­ä¸¤æ¬¡
             if (IN_BOARD[pos + KNIGHT_PIN[index]] and isEmpty(pos + KNIGHT_PIN[index])) {
               for (const auto &delta : KNIGHT_DELTA[index]) {
-                // ¶ÔÓÚÃ¿Ò»¸ö²½³¤£¬ÏÈ¿´ÊÇ·ñÔÚÆåÅÌÄÚ£¬ÔÙ²é¿´ÉÏÃæÊÇ²»ÊÇ¿ÕµÄ
+                // å¯¹äºæ¯ä¸€ä¸ªæ­¥é•¿ï¼Œå…ˆçœ‹æ˜¯å¦åœ¨æ£‹ç›˜å†…ï¼Œå†æŸ¥çœ‹ä¸Šé¢æ˜¯ä¸æ˜¯ç©ºçš„
                 if (IN_BOARD[pos + delta] and isEmpty(pos + delta)) {
-                  // Ã»ÓĞÆå×Ó»òÕß²»ÊÇ×Ô¼ºµÄÆå×Ó
+                  // æ²¡æœ‰æ£‹å­æˆ–è€…ä¸æ˜¯è‡ªå·±çš„æ£‹å­
                   moves[totalMoves++] = toNonCapMove(pos, pos + delta);
                 }
               }
@@ -1614,21 +1614,21 @@ Count PositionInfo::nonCaptureMoveGen(MoveList &moves, const Side side, const Co
           }
           break;
 
-        // Èç¹ûÊÇ±ø
+        // å¦‚æœæ˜¯å…µ
         case PAWN:
           if (isMyHalf(pos, side)) {
-            // Èç¹ûÃ»¹ıºÓ
+            // å¦‚æœæ²¡è¿‡æ²³
             Delta delta{getChessSide(pos) == RED ? RED_PAWN_DELTA : BLACK_PAWN_DELTA};
-            // ¼ì²éËùµ½Ö®´¦ÊÇ·ñÔÚÆåÅÌÄÚ£¬²é¿´ÉÏÃæÊÇ²»ÊÇ¿ÕµÄ
+            // æ£€æŸ¥æ‰€åˆ°ä¹‹å¤„æ˜¯å¦åœ¨æ£‹ç›˜å†…ï¼ŒæŸ¥çœ‹ä¸Šé¢æ˜¯ä¸æ˜¯ç©ºçš„
             if (IN_BOARD[pos + delta] and isEmpty(pos + delta)) {
               moves[totalMoves++] = toNonCapMove(pos, pos + delta);
             }
           } else {
-            // ¹ıºÓÁË
+            // è¿‡æ²³äº†
             for (const auto &delta : getChessSide(pos) == RED
                                          ? PROMOTED_RED_PAWN_DELTA
                                          : PROMOTED_BLACK_PAWN_DELTA) {
-              // ¼ì²éËùµ½Ö®´¦ÊÇ·ñÔÚÆåÅÌÄÚ£¬²é¿´ÉÏÃæÊÇ²»ÊÇ¿ÕµÄ
+              // æ£€æŸ¥æ‰€åˆ°ä¹‹å¤„æ˜¯å¦åœ¨æ£‹ç›˜å†…ï¼ŒæŸ¥çœ‹ä¸Šé¢æ˜¯ä¸æ˜¯ç©ºçš„
               if (IN_BOARD[pos + delta] and isEmpty(pos + delta)) {
                 moves[totalMoves++] = toNonCapMove(pos, pos + delta);
               }
@@ -1636,12 +1636,12 @@ Count PositionInfo::nonCaptureMoveGen(MoveList &moves, const Side side, const Co
           }
           break;
 
-        // Èç¹ûÊÇ³µºÍÅÚ
+        // å¦‚æœæ˜¯è½¦å’Œç‚®
         case CANNON:
         case ROOK:
           for (const auto &delta : LINE_CHESS_DELTA) {
             Position cur = pos + delta;
-            // Èç¹û¸ÃÎ»ÖÃÎª¿Õ
+            // å¦‚æœè¯¥ä½ç½®ä¸ºç©º
             while (IN_BOARD[cur] and isEmpty(cur)) {
               moves[totalMoves++] = toNonCapMove(pos, cur);
               cur += delta;
@@ -1655,49 +1655,49 @@ Count PositionInfo::nonCaptureMoveGen(MoveList &moves, const Side side, const Co
   return totalMoves;
 }
 
-// ³·Ïú×ßÆå
+// æ’¤é”€èµ°æ£‹
 inline void PositionInfo::unMakeMove(const Move move, const Side side) {
-  // Óë¸ù½ÚµãµÄ¾àÀë-1
+  // ä¸æ ¹èŠ‚ç‚¹çš„è·ç¦»-1
   --this->mDistance;
   Position src = getSrc(move), dest = getDest(move);
-  // »ñÈ¡±»³ÔµôµÄÆå×Ó£¬²¢×Ô¼õÀúÊ·×ß·¨±í´óĞ¡
+  // è·å–è¢«åƒæ‰çš„æ£‹å­ï¼Œå¹¶è‡ªå‡å†å²èµ°æ³•è¡¨å¤§å°
   Chess victim = this->mHistoryMove[--this->mHistorySize].mVictim;
-  // »¹Ô­·ÖÊıºÍZobrist
+  // è¿˜åŸåˆ†æ•°å’ŒZobrist
   calcUnMove(move, victim, side);
   this->mChessBoard[src] = this->mChessBoard[dest];
   this->mChessBoard[dest] = victim;
 }
 
-// ×ßÆå,·µ»ØÊÇ·ñ×ß³É¹¦
+// èµ°æ£‹,è¿”å›æ˜¯å¦èµ°æˆåŠŸ
 inline bool PositionInfo::makeMove(const Move move, const Side side) {
-  // Óë¸ù½ÚµãµÄ¾àÀë¼Ó1
+  // ä¸æ ¹èŠ‚ç‚¹çš„è·ç¦»åŠ 1
   ++this->mDistance;
-  // »ñÈ¡ÀúÊ·×ß·¨±íÏî£¬²¢½«×ÔÔö×ß·¨ÀúÊ·±íµÄ´óĞ¡
+  // è·å–å†å²èµ°æ³•è¡¨é¡¹ï¼Œå¹¶å°†è‡ªå¢èµ°æ³•å†å²è¡¨çš„å¤§å°
   MoveItem &moveItem = this->mHistoryMove[this->mHistorySize++];
   Position src = getSrc(move), dest = getDest(move);
-  // ±£´æÊÜº¦Õß
+  // ä¿å­˜å—å®³è€…
   moveItem.mVictim = this->mChessBoard[dest];
-  // ±£´æZobrist
+  // ä¿å­˜Zobrist
   moveItem.mZobrist = this->mZobrist;
-  // ¼ÆËã·ÖÊıºÍZobrist
+  // è®¡ç®—åˆ†æ•°å’ŒZobrist
   calcMove(move, side);
-  // ×ßÆå
+  // èµ°æ£‹
   this->mChessBoard[dest] = this->mChessBoard[src];
   this->mChessBoard[src] = EMPTY;
-  // ¼ì²é×Ô¼ºÊÇ·ñ±»½«¾ü
+  // æ£€æŸ¥è‡ªå·±æ˜¯å¦è¢«å°†å†›
   if (isChecked(side)) {
-    // Èç¹û±»½«¾üÁË¾Í¸´Ô­
+    // å¦‚æœè¢«å°†å†›äº†å°±å¤åŸ
     unMakeMove(move, side);
     return false;
   }
-  // ·ñÔò¾Í±£´æ±¾²½ÆåÊÇ·ñ½«¾ü¶Ô·½µÄĞÅÏ¢
+  // å¦åˆ™å°±ä¿å­˜æœ¬æ­¥æ£‹æ˜¯å¦å°†å†›å¯¹æ–¹çš„ä¿¡æ¯
   moveItem.mCheck = isChecked(getOppSide(side));
-  // ±£´æ×ß·¨ĞÅÏ¢
+  // ä¿å­˜èµ°æ³•ä¿¡æ¯
   moveItem.mMove = move;
   return true;
 }
 
-// µ±Ç°ÊÇ·ñ´¦ÓÚ²Ğ¾Ö½×¶Î
+// å½“å‰æ˜¯å¦å¤„äºæ®‹å±€é˜¶æ®µ
 inline bool PositionInfo::isNotEndgame(const Side side) {
   if (side == RED) {
     return this->mRedScore > 400;
@@ -1706,38 +1706,38 @@ inline bool PositionInfo::isNotEndgame(const Side side) {
   }
 }
 
-// ×ßÒ»²½¿Õ²½
+// èµ°ä¸€æ­¥ç©ºæ­¥
 inline void PositionInfo::makeNullMove() {
-  // Óë¸ù½ÚµãµÄ¾àÀë¼Ó1
+  // ä¸æ ¹èŠ‚ç‚¹çš„è·ç¦»åŠ 1
   ++this->mDistance;
-  // »ñÈ¡ÀúÊ·×ß·¨±íÏî£¬²¢½«×ÔÔö×ß·¨ÀúÊ·±íµÄ´óĞ¡
+  // è·å–å†å²èµ°æ³•è¡¨é¡¹ï¼Œå¹¶å°†è‡ªå¢èµ°æ³•å†å²è¡¨çš„å¤§å°
   MoveItem &moveItem = this->mHistoryMove[this->mHistorySize++];
-  // ±£´æÊÜº¦Õß
+  // ä¿å­˜å—å®³è€…
   moveItem.mVictim = EMPTY;
-  // ±£´æZobrist
+  // ä¿å­˜Zobrist
   moveItem.mZobrist = this->mZobrist;
-  // ·ñÔò¾Í±£´æ±¾²½ÆåÊÇ·ñ½«¾ü¶Ô·½µÄĞÅÏ¢
+  // å¦åˆ™å°±ä¿å­˜æœ¬æ­¥æ£‹æ˜¯å¦å°†å†›å¯¹æ–¹çš„ä¿¡æ¯
   moveItem.mCheck = false;
-  // ±£´æ×ß·¨ĞÅÏ¢
+  // ä¿å­˜èµ°æ³•ä¿¡æ¯
   moveItem.mMove = INVALID_MOVE;
-  // »»±ß£¬¼ÆËãZobrist
+  // æ¢è¾¹ï¼Œè®¡ç®—Zobrist
   this->mZobrist ^= SIDE_ZOBRIST;
 }
 
-// ³·Ïú×ßÒ»²½¿Õ²½
+// æ’¤é”€èµ°ä¸€æ­¥ç©ºæ­¥
 inline void PositionInfo::unMakeNullMove() {
-  // Óë¸ù½ÚµãµÄ¾àÀë-1
+  // ä¸æ ¹èŠ‚ç‚¹çš„è·ç¦»-1
   --this->mDistance;
-  // ×Ô¼õÀúÊ·×ß·¨±í´óĞ¡
+  // è‡ªå‡å†å²èµ°æ³•è¡¨å¤§å°
   --this->mHistorySize;
-  // »¹Ô­Zobrist
+  // è¿˜åŸZobrist
   this->mZobrist ^= SIDE_ZOBRIST;
 }
 
 SearchMachine::SearchMachine(PositionInfo &positionInfo, const Move hashMove,
                              const Side side)
     : mPositionInfo{positionInfo}, mSide{side}, mHash{hashMove} {
-  // »ñÈ¡Á½¸öÉ±ÊÖ×ß·¨
+  // è·å–ä¸¤ä¸ªæ€æ‰‹èµ°æ³•
   mKiller1 = this->mPositionInfo.mKiller[this->mPositionInfo.mDistance][0];
   mKiller2 = this->mPositionInfo.mKiller[this->mPositionInfo.mDistance][1];
 }
@@ -1745,64 +1745,64 @@ SearchMachine::SearchMachine(PositionInfo &positionInfo, const Move hashMove,
 Move SearchMachine::nextMove() {
   switch (mNowPhase) {
   case PHASE_HASH:
-    // Ö¸Ã÷ÏÂÒ»¸ö½×¶Î
+    // æŒ‡æ˜ä¸‹ä¸€ä¸ªé˜¶æ®µ
     this->mNowPhase = PHASE_CAPTURE_GEN;
-    // È·±£ÕâÒ»¸öÖÃ»»±í×ß·¨²»ÊÇÄ¬ÈÏ×ß·¨
+    // ç¡®ä¿è¿™ä¸€ä¸ªç½®æ¢è¡¨èµ°æ³•ä¸æ˜¯é»˜è®¤èµ°æ³•
     if (this->mHash not_eq INVALID_MOVE) {
       return this->mHash;
     }
-    // ·ñÔò¾ÍÏÂÒ»²½
+    // å¦åˆ™å°±ä¸‹ä¸€æ­¥
     [[fallthrough]];
   case PHASE_CAPTURE_GEN:
-    // Ö¸Ã÷ÏÂÒ»¸ö½×¶Î
+    // æŒ‡æ˜ä¸‹ä¸€ä¸ªé˜¶æ®µ
     this->mNowPhase = PHASE_CAPTURE;
-    // Éú³É³Ô×Ó×ß·¨£¬Ê¹ÓÃMVVLVA¶ÔÆä½øĞĞÅÅĞò
+    // ç”Ÿæˆåƒå­èµ°æ³•ï¼Œä½¿ç”¨MVVLVAå¯¹å…¶è¿›è¡Œæ’åº
     this->mTotalMoves = this->mPositionInfo.captureMoveGen(this->mMoves, this->mSide, 0);
     sort(begin(this->mMoves), begin(this->mMoves) + this->mTotalMoves);
-    // Ö±½ÓÏÂÒ»²½
+    // ç›´æ¥ä¸‹ä¸€æ­¥
     [[fallthrough]];
   case PHASE_CAPTURE:
-    // ±éÀú×ß·¨£¬Öğ¸ö·µ»ØºÃµÄ³Ô×Ó×ß·¨£¬³Ô¿÷µÄ³Ô×Ó×Å·¨Áôµ½×îºóËÑË÷
+    // éå†èµ°æ³•ï¼Œé€ä¸ªè¿”å›å¥½çš„åƒå­èµ°æ³•ï¼Œåƒäºçš„åƒå­ç€æ³•ç•™åˆ°æœ€åæœç´¢
     while (this->mNowIndex < this->mTotalMoves) {
       const ValuedMove &move = this->mMoves[mNowIndex++];
       if (move.mValue >= 0) return move.mMove;
       else { --this->mNowIndex; break;}
     }
-    // Èç¹ûÃ»ÓĞÁË¾ÍÏÂÒ»²½
+    // å¦‚æœæ²¡æœ‰äº†å°±ä¸‹ä¸€æ­¥
     [[fallthrough]];
   case PHASE_KILLER1:
-    // Ö¸Ã÷ÏÂÒ»¸ö½×¶Î
+    // æŒ‡æ˜ä¸‹ä¸€ä¸ªé˜¶æ®µ
     this->mNowPhase = PHASE_KILLER2;
-    // È·±£ÕâÒ»¸öÉ±ÊÖ×ß·¨²»ÊÇÄ¬ÈÏ×ß·¨£¬²»ÊÇÖÃ»»±í×ß·¨£¬²¢ÇÒÒªÈ·ÈÏÊÇ·ñÊÇºÏ·¨µÄ²½
+    // ç¡®ä¿è¿™ä¸€ä¸ªæ€æ‰‹èµ°æ³•ä¸æ˜¯é»˜è®¤èµ°æ³•ï¼Œä¸æ˜¯ç½®æ¢è¡¨èµ°æ³•ï¼Œå¹¶ä¸”è¦ç¡®è®¤æ˜¯å¦æ˜¯åˆæ³•çš„æ­¥
     if (this->mKiller1 not_eq INVALID_MOVE and
         this->mKiller1 not_eq this->mHash and
         this->mPositionInfo.isLegalMove(this->mKiller1, this->mSide)) {
       return this->mKiller1;
     }
-    // ·ñÔò¾ÍÏÂÒ»²½
+    // å¦åˆ™å°±ä¸‹ä¸€æ­¥
     [[fallthrough]];
   case PHASE_KILLER2:
-    // Ö¸Ã÷ÏÂÒ»¸ö½×¶Î
+    // æŒ‡æ˜ä¸‹ä¸€ä¸ªé˜¶æ®µ
     this->mNowPhase = PHASE_NOT_CAPTURE_GEN;
-    // È·±£ÕâÒ»¸öÉ±ÊÖ×ß·¨²»ÊÇÄ¬ÈÏ×ß·¨£¬²»ÊÇÖÃ»»±í×ß·¨
+    // ç¡®ä¿è¿™ä¸€ä¸ªæ€æ‰‹èµ°æ³•ä¸æ˜¯é»˜è®¤èµ°æ³•ï¼Œä¸æ˜¯ç½®æ¢è¡¨èµ°æ³•
     if (this->mKiller2 not_eq INVALID_MOVE and
         this->mKiller2 not_eq this->mHash and
         this->mPositionInfo.isLegalMove(this->mKiller2, this->mSide)) {
       return this->mKiller2;
     }
-    // ·ñÔò¾ÍÏÂÒ»²½
+    // å¦åˆ™å°±ä¸‹ä¸€æ­¥
     [[fallthrough]];
   case PHASE_NOT_CAPTURE_GEN:
-    // Ö¸Ã÷ÏÂÒ»¸ö½×¶Î
+    // æŒ‡æ˜ä¸‹ä¸€ä¸ªé˜¶æ®µ
     this->mNowPhase = PHASE_REST;
-    // Éú³É·Ç³Ô×ÓµÄ×ß·¨²¢Ê¹ÓÃÀúÊ·±í¶ÔÆä½øĞĞÅÅĞò
+    // ç”Ÿæˆéåƒå­çš„èµ°æ³•å¹¶ä½¿ç”¨å†å²è¡¨å¯¹å…¶è¿›è¡Œæ’åº
     this->mTotalMoves = this->mPositionInfo.nonCaptureMoveGen(this->mMoves,
                                                               this->mSide, this->mTotalMoves);
     sort(begin(this->mMoves) + this->mNowIndex, begin(this->mMoves) + this->mTotalMoves);
-    // Ö±½ÓÏÂÒ»²½
+    // ç›´æ¥ä¸‹ä¸€æ­¥
     [[fallthrough]];
   case PHASE_REST:
-    // ±éÀú×ß·¨£¬Öğ¸ö¼ì²é²¢·µ»Ø
+    // éå†èµ°æ³•ï¼Œé€ä¸ªæ£€æŸ¥å¹¶è¿”å›
     while (this->mNowIndex < this->mTotalMoves) {
       Move move{this->mMoves[mNowIndex++].mMove};
       if (move not_eq this->mHash and move not_eq this->mKiller1 and
@@ -1810,7 +1810,7 @@ Move SearchMachine::nextMove() {
         return move;
       }
     }
-    // Èç¹ûÃ»ÓĞÁË¾ÍÖ±½Ó·µ»Ø
+    // å¦‚æœæ²¡æœ‰äº†å°±ç›´æ¥è¿”å›
     [[fallthrough]];
   default:
     return INVALID_MOVE;
@@ -1823,180 +1823,180 @@ SearchQuiescenceMachine::SearchQuiescenceMachine(PositionInfo &positionInfo, con
 Move SearchQuiescenceMachine::nextMove() {
   switch (mNowPhase) {
   case PHASE_CAPTURE_GEN:
-    // Ö¸Ã÷ÏÂÒ»¸ö½×¶Î
+    // æŒ‡æ˜ä¸‹ä¸€ä¸ªé˜¶æ®µ
     this->mNowPhase = PHASE_CAPTURE;
-    // Éú³É³Ô×Ó×ß·¨£¬Ê¹ÓÃMVVLVA¶ÔÆä½øĞĞÅÅĞò
+    // ç”Ÿæˆåƒå­èµ°æ³•ï¼Œä½¿ç”¨MVVLVAå¯¹å…¶è¿›è¡Œæ’åº
     this->mTotalMoves = this->mPositionInfo.captureMoveGen(this->mMoves, this->mSide, 0);
     sort(begin(this->mMoves), begin(this->mMoves) + this->mTotalMoves);
-    // Ö±½ÓÏÂÒ»²½
+    // ç›´æ¥ä¸‹ä¸€æ­¥
     [[fallthrough]];
   case PHASE_CAPTURE:
-    // ±éÀú×ß·¨£¬Öğ¸ö·µ»ØºÃµÄ³Ô×Ó×ß·¨£¬³Ô¿÷µÄ³Ô×Ó×Å·¨Áôµ½×îºóËÑË÷
-    // ÓÉÓÚÕâÀïÊÇ¾²Ì¬ËÑË÷£¬Èç¹ûÖ»Éú³É³Ô×Ó×ß·¨£¬ÄÇÎªÁË°²È«Æğ¼û¾ÍÒªËÑË÷ÍêËùÓĞµÄ³Ô×Ó×ß·¨°üÀ¨³Ô¿÷µÄ
+    // éå†èµ°æ³•ï¼Œé€ä¸ªè¿”å›å¥½çš„åƒå­èµ°æ³•ï¼Œåƒäºçš„åƒå­ç€æ³•ç•™åˆ°æœ€åæœç´¢
+    // ç”±äºè¿™é‡Œæ˜¯é™æ€æœç´¢ï¼Œå¦‚æœåªç”Ÿæˆåƒå­èµ°æ³•ï¼Œé‚£ä¸ºäº†å®‰å…¨èµ·è§å°±è¦æœç´¢å®Œæ‰€æœ‰çš„åƒå­èµ°æ³•åŒ…æ‹¬åƒäºçš„
     while (this->mNowIndex < this->mTotalMoves) {
       const ValuedMove &move = this->mMoves[mNowIndex++];
       if (this->mCapture or move.mValue >= 0) return move.mMove;
       else { --this->mNowIndex; break;}
     }
-    // Èç¹ûÃ»ÓĞÁË¾ÍÏÂÒ»²½
+    // å¦‚æœæ²¡æœ‰äº†å°±ä¸‹ä¸€æ­¥
     [[fallthrough]];
   case PHASE_NOT_CAPTURE_GEN:
-    // Èç¹ûÖ»Éú³É³Ô×Ó×ß·¨£¬Ö±½Ó·µ»Ø¼´¿É
+    // å¦‚æœåªç”Ÿæˆåƒå­èµ°æ³•ï¼Œç›´æ¥è¿”å›å³å¯
     if (this->mCapture) return INVALID_MOVE;
-    // Ö¸Ã÷ÏÂÒ»¸ö½×¶Î
+    // æŒ‡æ˜ä¸‹ä¸€ä¸ªé˜¶æ®µ
     this->mNowPhase = PHASE_REST;
-    // Éú³É·Ç³Ô×ÓµÄ×ß·¨²¢Ê¹ÓÃÀúÊ·±í¶ÔÆä½øĞĞÅÅĞò
+    // ç”Ÿæˆéåƒå­çš„èµ°æ³•å¹¶ä½¿ç”¨å†å²è¡¨å¯¹å…¶è¿›è¡Œæ’åº
     this->mTotalMoves = this->mPositionInfo.nonCaptureMoveGen(this->mMoves,
                                                               this->mSide, this->mTotalMoves);
     sort(begin(this->mMoves) + this->mNowIndex, begin(this->mMoves) + this->mTotalMoves);
-    // Ö±½ÓÏÂÒ»²½
+    // ç›´æ¥ä¸‹ä¸€æ­¥
     [[fallthrough]];
   case PHASE_REST:
-    // ±éÀú×ß·¨£¬Öğ¸ö·µ»Ø
+    // éå†èµ°æ³•ï¼Œé€ä¸ªè¿”å›
     while (this->mNowIndex < this->mTotalMoves) {
       return this->mMoves[mNowIndex++].mMove;
     }
-    // Èç¹ûÃ»ÓĞÁË¾ÍÖ±½Ó·µ»Ø
+    // å¦‚æœæ²¡æœ‰äº†å°±ç›´æ¥è¿”å›
     [[fallthrough]];
   default:
     return INVALID_MOVE;
   }
 }
 
-// ¾²Ì¬ËÑË÷
+// é™æ€æœç´¢
 Score PositionInfo::searchQuiescence(Score alpha, const Score beta, const Side side) {
-  // ÏÈ¼ì²éÖØ¸´¾ÖÃæ£¬»ñµÃÖØ¸´¾ÖÃæ±êÖ¾
+  // å…ˆæ£€æŸ¥é‡å¤å±€é¢ï¼Œè·å¾—é‡å¤å±€é¢æ ‡å¿—
   RepeatFlag repeatFlag{getRepeatFlag()};
   if (repeatFlag) {
-    // Èç¹ûÓĞÖØ¸´µÄÇé¿ö£¬Ö±½Ó·µ»Ø·ÖÊı
+    // å¦‚æœæœ‰é‡å¤çš„æƒ…å†µï¼Œç›´æ¥è¿”å›åˆ†æ•°
     return scoreRepeatFlag(repeatFlag);
   }
 
   Move move;
   Score bestScore {LOSS_SCORE};
-  // ¾²Ì¬ËÑË÷µÄÓĞÏŞ×´Ì¬»ú
+  // é™æ€æœç´¢çš„æœ‰é™çŠ¶æ€æœº
   SearchQuiescenceMachine search {*this, side};
   if (this->mHistoryMove[this->mHistorySize - 1].mCheck) {
-    // Èç¹û±»½«¾üÁË£¬Éú³ÉËùÓĞ×Å·¨
+    // å¦‚æœè¢«å°†å†›äº†ï¼Œç”Ÿæˆæ‰€æœ‰ç€æ³•
     search.mCapture = false;
   } else {
-    // Èç¹û²»±»½«¾ü£¬ÏÈ×ö¾ÖÃæÆÀ¼Û£¬Èç¹û¾ÖÃæÆÀ¼ÛÃ»ÓĞ½Ø¶Ï£¬ÔÙÉú³É³Ô×Ó×ß·¨
+    // å¦‚æœä¸è¢«å°†å†›ï¼Œå…ˆåšå±€é¢è¯„ä»·ï¼Œå¦‚æœå±€é¢è¯„ä»·æ²¡æœ‰æˆªæ–­ï¼Œå†ç”Ÿæˆåƒå­èµ°æ³•
     Score tryScore = evaluate(side);
     if (tryScore > bestScore) {
       bestScore = tryScore;
       if (tryScore >= beta) {
-        // Beta½Ø¶Ï
+        // Betaæˆªæ–­
         return tryScore;
       }
       if (tryScore > alpha) {
-        // ËõĞ¡Alpha-Beta±ß½ç
+        // ç¼©å°Alpha-Betaè¾¹ç•Œ
         alpha = tryScore;
       }
     }
   }
 
-  // ±éÀúËùÓĞ×ß·¨
+  // éå†æ‰€æœ‰èµ°æ³•
   while ((move = search.nextMove())) {
-    // Èç¹û±»½«¾üÁË¾Í²»ËÑË÷ÕâÒ»²½
+    // å¦‚æœè¢«å°†å†›äº†å°±ä¸æœç´¢è¿™ä¸€æ­¥
     if (makeMove(move, side)) {
-      // ²»È»¾Í»ñµÃÆÀ·Ö²¢¸üĞÂ×îºÃµÄ·ÖÊı
+      // ä¸ç„¶å°±è·å¾—è¯„åˆ†å¹¶æ›´æ–°æœ€å¥½çš„åˆ†æ•°
       Score tryScore = -searchQuiescence(-beta, -alpha, getOppSide(side));
-      // ³·Ïú×ßÆå
+      // æ’¤é”€èµ°æ£‹
       unMakeMove(move, side);
       if (tryScore > bestScore) {
-        // ÕÒµ½×î¼Ñ×ß·¨(µ«²»ÄÜÈ·¶¨ÊÇAlpha¡¢PV»¹ÊÇBeta×ß·¨)
+        // æ‰¾åˆ°æœ€ä½³èµ°æ³•(ä½†ä¸èƒ½ç¡®å®šæ˜¯Alphaã€PVè¿˜æ˜¯Betaèµ°æ³•)
         bestScore = tryScore;
-        // ÕÒµ½Ò»¸öBeta×ß·¨
+        // æ‰¾åˆ°ä¸€ä¸ªBetaèµ°æ³•
         if (tryScore >= beta) {
-          // Beta½Ø¶Ï
+          // Betaæˆªæ–­
           return tryScore;
         }
-        // ÕÒµ½Ò»¸öPV×ß·¨
+        // æ‰¾åˆ°ä¸€ä¸ªPVèµ°æ³•
         if (tryScore > alpha) {
-          // ËõĞ¡Alpha-Beta±ß½ç
+          // ç¼©å°Alpha-Betaè¾¹ç•Œ
           alpha = tryScore;
         }
       }
     }
   }
 
-  // ËùÓĞ×ß·¨¶¼ËÑË÷ÍêÁË£¬·µ»Ø×î¼ÑÖµ
+  // æ‰€æœ‰èµ°æ³•éƒ½æœç´¢å®Œäº†ï¼Œè¿”å›æœ€ä½³å€¼
   if (bestScore == LOSS_SCORE) {
-    // Èç¹ûÊÇÉ±Æå£¬¾Í¸ù¾İÉ±Æå²½Êı¸ø³öÆÀ¼Û
+    // å¦‚æœæ˜¯æ€æ£‹ï¼Œå°±æ ¹æ®æ€æ£‹æ­¥æ•°ç»™å‡ºè¯„ä»·
     return LOSS_SCORE + this->mDistance;
   }
 
-  // ·ñÔò¾Í·µ»Ø×î¼ÑÖµ
+  // å¦åˆ™å°±è¿”å›æœ€ä½³å€¼
   return bestScore;
 }
 
-// ÍêÈ«¾ÖÃæËÑË÷
+// å®Œå…¨å±€é¢æœç´¢
 Score PositionInfo::searchFull(Score alpha, const Score beta, const Depth depth,
                                const Side side, const NullFlag nullOk) {
-  // ´ïµ½Éî¶È¾Í·µ»Ø¾²Ì¬ÆÀ¼Û£¬ÓÉÓÚ¿Õ×Å²Ã¼ô£¬Éî¶È¿ÉÄÜĞ¡ÓÚ-1
+  // è¾¾åˆ°æ·±åº¦å°±è¿”å›é™æ€è¯„ä»·ï¼Œç”±äºç©ºç€è£å‰ªï¼Œæ·±åº¦å¯èƒ½å°äº-1
   if (depth <= 0) {
     return searchQuiescence(alpha, beta, side);
   }
 
-  // ÏÈ¼ì²éÖØ¸´¾ÖÃæ£¬»ñµÃÖØ¸´¾ÖÃæ±êÖ¾
+  // å…ˆæ£€æŸ¥é‡å¤å±€é¢ï¼Œè·å¾—é‡å¤å±€é¢æ ‡å¿—
   RepeatFlag repeatFlag {getRepeatFlag()};
   if (repeatFlag) {
-    // Èç¹ûÓĞÖØ¸´µÄÇé¿ö£¬Ö±½Ó·µ»Ø·ÖÊı
+    // å¦‚æœæœ‰é‡å¤çš„æƒ…å†µï¼Œç›´æ¥è¿”å›åˆ†æ•°
     return scoreRepeatFlag(repeatFlag);
   }
 
-  // µ±Ç°×ß·¨
+  // å½“å‰èµ°æ³•
   Move move;
-  // ³¢ÊÔÖÃ»»±í²Ã¼ô£¬²¢µÃµ½ÖÃ»»±í×ß·¨
+  // å°è¯•ç½®æ¢è¡¨è£å‰ªï¼Œå¹¶å¾—åˆ°ç½®æ¢è¡¨èµ°æ³•
   Score tryScore {probeHash(alpha, beta, depth, move)};
   if (tryScore > LOSS_SCORE) {
-    // ÖÃ»»±í²Ã¼ô³É¹¦
+    // ç½®æ¢è¡¨è£å‰ªæˆåŠŸ
     return tryScore;
   }
 
-  /* ½øĞĞ¿Õ²½²Ã¼ô£¬²»ÄÜÁ¬×Å×ßÁ½²½¿Õ²½£¬±»½«¾üÊ±²»ÄÜ×ß¿Õ²½
-     ²Ğ¾Ö×ß¿Õ²½£¬ĞèÒª½øĞĞ¼ìÑé£¬²»È»»áÓĞÌØ±ğ´óµÄ·çÏÕ
-     ¸ù½ÚµãµÄBetaÖµÊÇ"MATE_SCORE"£¬ËùÒÔ²»¿ÉÄÜ·¢Éú¿Õ²½²Ã¼ô */
+  /* è¿›è¡Œç©ºæ­¥è£å‰ªï¼Œä¸èƒ½è¿ç€èµ°ä¸¤æ­¥ç©ºæ­¥ï¼Œè¢«å°†å†›æ—¶ä¸èƒ½èµ°ç©ºæ­¥
+     æ®‹å±€èµ°ç©ºæ­¥ï¼Œéœ€è¦è¿›è¡Œæ£€éªŒï¼Œä¸ç„¶ä¼šæœ‰ç‰¹åˆ«å¤§çš„é£é™©
+     æ ¹èŠ‚ç‚¹çš„Betaå€¼æ˜¯"MATE_SCORE"ï¼Œæ‰€ä»¥ä¸å¯èƒ½å‘ç”Ÿç©ºæ­¥è£å‰ª */
   if (nullOk and not this->mHistoryMove[this->mHistorySize - 1].mCheck) {
-      // ×ßÒ»²½¿Õ²½
+      // èµ°ä¸€æ­¥ç©ºæ­¥
       makeNullMove();
-      // »ñµÃÆÀ·Ö£¬Éî¶È¼õµô¿Õ×Å²Ã¼ôÍÆ¼öµÄÁ½²ã£¬È»ºó±¾Éí×ßÁËÒ»²½¿Õ²½£¬»¹ÒªÔÙ¼õµôÒ»²ã
+      // è·å¾—è¯„åˆ†ï¼Œæ·±åº¦å‡æ‰ç©ºç€è£å‰ªæ¨èçš„ä¸¤å±‚ï¼Œç„¶åæœ¬èº«èµ°äº†ä¸€æ­¥ç©ºæ­¥ï¼Œè¿˜è¦å†å‡æ‰ä¸€å±‚
       tryScore = -searchFull(-beta, 1 - beta, depth - 3, getOppSide(side), NO_NULL);
-      // ³·Ïú¿Õ²½
+      // æ’¤é”€ç©ºæ­¥
       unMakeNullMove();
-      // Èç¹û×ã¹»ºÃ¾Í¿ÉÒÔ·¢Éú½Ø¶Ï£¬²Ğ¾Ö½×¶ÎÒª×¢Òâ½øĞĞĞ£Ñé
+      // å¦‚æœè¶³å¤Ÿå¥½å°±å¯ä»¥å‘ç”Ÿæˆªæ–­ï¼Œæ®‹å±€é˜¶æ®µè¦æ³¨æ„è¿›è¡Œæ ¡éªŒ
       if (tryScore >= beta and (isNotEndgame(side) or
                                 searchFull(beta - 1, beta, depth - 2, NO_NULL) >= beta)) {
         return tryScore;
       }
   }
 
-  // ËÑË÷ÓĞÏŞ×´Ì¬»ú
+  // æœç´¢æœ‰é™çŠ¶æ€æœº
   SearchMachine search {*this, move, side};
-  // ×î¼Ñ×ß·¨µÄ±êÖ¾
+  // æœ€ä½³èµ°æ³•çš„æ ‡å¿—
   HashFlag bestMoveHashFlag {HASH_ALPHA};
   Score bestScore {LOSS_SCORE};
   Move bestMove {INVALID_MOVE};
-  // LMRµÄ¼ÆÊıÆ÷
+  // LMRçš„è®¡æ•°å™¨
   Count moveSearched {0};
-  // ±éÀúËùÓĞ×ß·¨
+  // éå†æ‰€æœ‰èµ°æ³•
   while ((move = search.nextMove())) {
-    // Èç¹û±»½«¾üÁË¾Í²»ËÑË÷ÕâÒ»²½
+    // å¦‚æœè¢«å°†å†›äº†å°±ä¸æœç´¢è¿™ä¸€æ­¥
     if (makeMove(move, side)) {
-      // ²»È»¾Í»ñµÃÆÀ·Ö²¢¸üĞÂ×îºÃµÄ·ÖÊı
+      // ä¸ç„¶å°±è·å¾—è¯„åˆ†å¹¶æ›´æ–°æœ€å¥½çš„åˆ†æ•°
       const MoveItem &lastMove {this->mHistoryMove[this->mHistorySize - 1]};
-      // ½«¾üÑÓÉì£¬Èç¹û½«¾üÁË¶Ô·½¾Í¶àËÑ¼¸²½
+      // å°†å†›å»¶ä¼¸ï¼Œå¦‚æœå°†å†›äº†å¯¹æ–¹å°±å¤šæœå‡ æ­¥
       Depth newDepth = lastMove.mCheck ? depth : depth - 1;
       // PVS
       if (moveSearched == 0) {
         tryScore = -searchFull(-beta, -alpha, newDepth, getOppSide(side));
       } else {
-        // LMR£¬ÒªÇóµ±Ç°²ãÊı´óÓÚµÈÓÚ3£¬Ã»ÓĞ±»½«¾ü£¬¸Ã²½²»ÊÇ³Ô×Ó²½£¬´ÓµÚ4²½Æå¿ªÊ¼Íùºó
+        // LMRï¼Œè¦æ±‚å½“å‰å±‚æ•°å¤§äºç­‰äº3ï¼Œæ²¡æœ‰è¢«å°†å†›ï¼Œè¯¥æ­¥ä¸æ˜¯åƒå­æ­¥ï¼Œä»ç¬¬4æ­¥æ£‹å¼€å§‹å¾€å
         if (moveSearched >= 4 and depth >= 3 and
             newDepth not_eq depth and not lastMove.mVictim) {
           tryScore = -searchFull(-alpha - 1, -alpha, newDepth - 1, getOppSide(side));
         }
-        // ÆäÓàÇé¿ö±£Ö¤ËÑË÷Õı³£½øĞĞ
+        // å…¶ä½™æƒ…å†µä¿è¯æœç´¢æ­£å¸¸è¿›è¡Œ
         else tryScore = alpha + 1;
         if (tryScore > alpha) {
           tryScore = -searchFull(-alpha - 1, -alpha, newDepth, getOppSide(side));
@@ -2005,83 +2005,83 @@ Score PositionInfo::searchFull(Score alpha, const Score beta, const Depth depth,
           }
         }
       }
-      // ³·Ïú×ßÆå
+      // æ’¤é”€èµ°æ£‹
       unMakeMove(move, side);
       if (tryScore > bestScore) {
-        // ÕÒµ½×î¼Ñ×ß·¨(µ«²»ÄÜÈ·¶¨ÊÇAlpha¡¢PV»¹ÊÇBeta×ß·¨)
+        // æ‰¾åˆ°æœ€ä½³èµ°æ³•(ä½†ä¸èƒ½ç¡®å®šæ˜¯Alphaã€PVè¿˜æ˜¯Betaèµ°æ³•)
         bestScore = tryScore;
-        // ÕÒµ½Ò»¸öBeta×ß·¨
+        // æ‰¾åˆ°ä¸€ä¸ªBetaèµ°æ³•
         if (tryScore >= beta) {
-          // ¸üĞÂ×ß·¨±êÖ¾
+          // æ›´æ–°èµ°æ³•æ ‡å¿—
           bestMoveHashFlag = HASH_BETA;
-          // Beta×ß·¨Òª±£´æµ½ÀúÊ·±í
+          // Betaèµ°æ³•è¦ä¿å­˜åˆ°å†å²è¡¨
           bestMove = move;
-          // Beta½Ø¶Ï
+          // Betaæˆªæ–­
           break;
         }
-        // ÕÒµ½Ò»¸öPV×ß·¨
+        // æ‰¾åˆ°ä¸€ä¸ªPVèµ°æ³•
         if (tryScore > alpha) {
-          // ¸üĞÂ×ß·¨±êÖ¾
+          // æ›´æ–°èµ°æ³•æ ‡å¿—
           bestMoveHashFlag = HASH_PV;
-          // PV×ß·¨Òª±£´æµ½ÀúÊ·±í
+          // PVèµ°æ³•è¦ä¿å­˜åˆ°å†å²è¡¨
           bestMove = move;
-          // ËõĞ¡Alpha-Beta±ß½ç
+          // ç¼©å°Alpha-Betaè¾¹ç•Œ
           alpha = tryScore;
         }
       }
-      // ËÑË÷ÁËÒ»²½Æå
+      // æœç´¢äº†ä¸€æ­¥æ£‹
       ++moveSearched;
     }
   }
 
-  // ËùÓĞ×ß·¨¶¼ËÑË÷ÍêÁË£¬°Ñ×î¼Ñ×ß·¨(²»ÄÜÊÇAlpha×ß·¨)±£´æµ½ÀúÊ·±í£¬·µ»Ø×î¼ÑÖµ
+  // æ‰€æœ‰èµ°æ³•éƒ½æœç´¢å®Œäº†ï¼ŒæŠŠæœ€ä½³èµ°æ³•(ä¸èƒ½æ˜¯Alphaèµ°æ³•)ä¿å­˜åˆ°å†å²è¡¨ï¼Œè¿”å›æœ€ä½³å€¼
   if (bestScore == LOSS_SCORE) {
-    // Èç¹ûÊÇÉ±Æå£¬¾Í¸ù¾İÉ±Æå²½Êı¸ø³öÆÀ¼Û
+    // å¦‚æœæ˜¯æ€æ£‹ï¼Œå°±æ ¹æ®æ€æ£‹æ­¥æ•°ç»™å‡ºè¯„ä»·
     return LOSS_SCORE + this->mDistance;
   }
 
-  // ¼ÇÂ¼µ½ÖÃ»»±í
+  // è®°å½•åˆ°ç½®æ¢è¡¨
   HashItem &hashItem = HASH_TABLE[this->mZobrist & HASH_MASK];
   hashItem.mHashItemLock.lockForWrite();
   recordHash(hashItem, bestMoveHashFlag, bestScore, depth, bestMove);
   hashItem.mHashItemLock.unlock();
   if (bestMove not_eq INVALID_MOVE and isEmpty(getDest(bestMove))) {
-    // Èç¹û²»ÊÇAlpha×ß·¨£¬²¢ÇÒ²»ÊÇ³Ô×Ó×ß·¨£¬¾Í½«×î¼Ñ×ß·¨±£´æµ½ÀúÊ·±í¡¢É±ÊÖ±í
+    // å¦‚æœä¸æ˜¯Alphaèµ°æ³•ï¼Œå¹¶ä¸”ä¸æ˜¯åƒå­èµ°æ³•ï¼Œå°±å°†æœ€ä½³èµ°æ³•ä¿å­˜åˆ°å†å²è¡¨ã€æ€æ‰‹è¡¨
     setBestMove(bestMove, depth);
   }
   return bestScore;
 }
 
-// ¸ù½ÚµãµÄËÑË÷
+// æ ¹èŠ‚ç‚¹çš„æœç´¢
 Score PositionInfo::searchRoot(const Depth depth) {
-  // µ±Ç°×ß·¨
+  // å½“å‰èµ°æ³•
   Move move;
-  // ËÑË÷ÓĞÏŞ×´Ì¬»ú
+  // æœç´¢æœ‰é™çŠ¶æ€æœº
   SearchMachine search{*this, this->mBestMove, COMPUTER_SIDE};
   Score bestScore{LOSS_SCORE};
-  // LMRµÄ¼ÆÊıÆ÷
+  // LMRçš„è®¡æ•°å™¨
   Count moveSearched {0};
-  // ±éÀúËùÓĞ×ß·¨
+  // éå†æ‰€æœ‰èµ°æ³•
   while ((move = search.nextMove())) {
-    // Èç¹û±»½«¾üÁË¾Í²»ËÑË÷ÕâÒ»²½
+    // å¦‚æœè¢«å°†å†›äº†å°±ä¸æœç´¢è¿™ä¸€æ­¥
     if (makeMove(move, COMPUTER_SIDE)) {
-      // ²»È»¾Í»ñµÃÆÀ·Ö²¢¸üĞÂ×îºÃµÄ·ÖÊı
+      // ä¸ç„¶å°±è·å¾—è¯„åˆ†å¹¶æ›´æ–°æœ€å¥½çš„åˆ†æ•°
       Score tryScore;
       const MoveItem &lastMove {this->mHistoryMove[this->mHistorySize - 1]};
-      // ½«¾üÑÓÉì£¬Èç¹û½«¾üÁË¶Ô·½¾Í¶àËÑ¼¸²½
+      // å°†å†›å»¶ä¼¸ï¼Œå¦‚æœå°†å†›äº†å¯¹æ–¹å°±å¤šæœå‡ æ­¥
       Depth newDepth = lastMove.mCheck ? depth : depth - 1;
       // PVS
       if (moveSearched == 0) {
         tryScore = -searchFull(LOSS_SCORE, MATE_SCORE, newDepth,
                                getOppSide(COMPUTER_SIDE), NO_NULL);
       } else {
-        // LMR£¬ÒªÇóµ±Ç°²ãÊı´óÓÚµÈÓÚ3£¬Ã»ÓĞ±»½«¾ü£¬¸Ã²½²»ÊÇ³Ô×Ó²½£¬´ÓµÚ4²½Æå¿ªÊ¼Íùºó
+        // LMRï¼Œè¦æ±‚å½“å‰å±‚æ•°å¤§äºç­‰äº3ï¼Œæ²¡æœ‰è¢«å°†å†›ï¼Œè¯¥æ­¥ä¸æ˜¯åƒå­æ­¥ï¼Œä»ç¬¬4æ­¥æ£‹å¼€å§‹å¾€å
         if (moveSearched >= 4 and depth >= 3 and
             newDepth not_eq depth and not lastMove.mVictim) {
           tryScore = -searchFull(-bestScore - 1, -bestScore,
                                  newDepth - 1, getOppSide(COMPUTER_SIDE));
         }
-        // ÆäÓàÇé¿ö±£Ö¤ËÑË÷Õı³£½øĞĞ
+        // å…¶ä½™æƒ…å†µä¿è¯æœç´¢æ­£å¸¸è¿›è¡Œ
         else tryScore = bestScore + 1;
         if (tryScore > bestScore) {
           tryScore = -searchFull(-bestScore - 1, -bestScore, newDepth, getOppSide(COMPUTER_SIDE));
@@ -2091,23 +2091,23 @@ Score PositionInfo::searchRoot(const Depth depth) {
           }
         }
       }
-      // ³·Ïú×ßÆå
+      // æ’¤é”€èµ°æ£‹
       unMakeMove(move, COMPUTER_SIDE);
       if (tryScore > bestScore) {
-        // ÕÒµ½×î¼Ñ×ß·¨
+        // æ‰¾åˆ°æœ€ä½³èµ°æ³•
         bestScore = tryScore;
         this->mBestMove = move;
       }
-      // ËÑË÷ÁËÒ»²½Æå
+      // æœç´¢äº†ä¸€æ­¥æ£‹
       ++moveSearched;
     }
   }
-  // ¼ÇÂ¼µ½ÖÃ»»±í
+  // è®°å½•åˆ°ç½®æ¢è¡¨
   HashItem &hashItem = HASH_TABLE[this->mZobrist & HASH_MASK];
   hashItem.mHashItemLock.lockForWrite();
   recordHash(hashItem, HASH_PV, bestScore, depth, this->mBestMove);
   hashItem.mHashItemLock.unlock();
-  // Èç¹û²»ÊÇ³Ô×Ó×Å·¨£¬¾Í±£´æµ½ÀúÊ·±íºÍÉ±ÊÖ×Å·¨±í
+  // å¦‚æœä¸æ˜¯åƒå­ç€æ³•ï¼Œå°±ä¿å­˜åˆ°å†å²è¡¨å’Œæ€æ‰‹ç€æ³•è¡¨
   if (isEmpty(getDest(this->mBestMove))){
     setBestMove(this->mBestMove, depth);
   }
@@ -2117,11 +2117,11 @@ Score PositionInfo::searchRoot(const Depth depth) {
 string PositionInfo::fenGen() {
   string fen{""};
   char spaceBetween{'0'};
-  // ±éÀúÆåÅÌ
+  // éå†æ£‹ç›˜
   for (Position start{51}; start < 204; start += 16) {
     for (Position pos{start}; pos < start + 9; ++pos) {
       switch (this->mChessBoard[pos]) {
-        // ¿ÕµÄ
+        // ç©ºçš„
       case EMPTY:
         ++spaceBetween;
         break;
@@ -2134,38 +2134,38 @@ string PositionInfo::fenGen() {
         fen += CHESS_FEN[this->mChessBoard[pos]];
       }
     }
-    // Ò»ĞĞ×îºóµÄ¿Õ¸ñ
+    // ä¸€è¡Œæœ€åçš„ç©ºæ ¼
     if (spaceBetween != '0') {
       fen += spaceBetween;
       spaceBetween = '0';
     }
     fen += '/';
   }
-  // ÒÆ³ı×îºóÒ»¸ö¶à¼ÓµÄ/
+  // ç§»é™¤æœ€åä¸€ä¸ªå¤šåŠ çš„/
   fen.erase(--end(fen));
   fen += COMPUTER_SIDE == RED ? " w" : " b";
   return fen;
 }
 
-// perft²âÊÔº¯Êı
+// perftæµ‹è¯•å‡½æ•°
 void PositionInfo::perft(const Depth depth, const Side side) {
   if (depth == 0) { ++NODES; return; }
-  // µ±Ç°×ß·¨
+  // å½“å‰èµ°æ³•
   Move move;
-  // ËÑË÷ÓĞÏŞ×´Ì¬»ú
+  // æœç´¢æœ‰é™çŠ¶æ€æœº
   SearchMachine search{*this, INVALID_MOVE, side};
-  // ±éÀúËùÓĞ×ß·¨
+  // éå†æ‰€æœ‰èµ°æ³•
   while ((move = search.nextMove())) {
-    // Èç¹û±»½«¾üÁË¾Í²»ËÑË÷ÕâÒ»²½
+    // å¦‚æœè¢«å°†å†›äº†å°±ä¸æœç´¢è¿™ä¸€æ­¥
     if (makeMove(move, side)) {
       perft(depth - 1, getOppSide(side));
-      // ³·Ïú×ßÆå
+      // æ’¤é”€èµ°æ£‹
       unMakeMove(move, side);
     }
   }
 }
 
-// Ö´ĞĞperft²âÊÔ£¬Êä³ö½á¹û
+// æ‰§è¡Œperftæµ‹è¯•ï¼Œè¾“å‡ºç»“æœ
 void doPerft() {
   for (Count i {1}; i < 6; ++i) {
     NODES = 0;
@@ -2174,57 +2174,60 @@ void doPerft() {
   }
 }
 
-// ËÑË÷µÄÈë¿Ú
+// æœç´¢çš„å…¥å£
 Score searchMain() {
-  // ÖØÖÃĞÅÏ¢
+  // é‡ç½®ä¿¡æ¯
   resetCache(POSITION_INFO);
-  // µü´ú¼ÓÉî£¬ÖØÖÃÉî¶È
+  // è¿­ä»£åŠ æ·±ï¼Œé‡ç½®æ·±åº¦
   CURRENT_DEPTH = 1;
   Score bestScore{0};
-  // ¶àÏß³ÌËÑË÷£¬Ã¿¸öÏß³ÌÒ»¸öPositionInfo£¬Ö»ÓĞÖÃ»»±íÊÇ¹²ÏíµÄ
-  // ÎªÊ²Ã´ÊÇMAX_CONCURRENT - 1?
-  // ÒòÎª±¾Éí¿ªÆôÆäËûÏß³ÌÈ¥ËÑË÷µÄÏß³ÌÒ²Òª²ÎÓëËÑË÷£¬Õ¼ÓÃÒ»¸öºËĞÄ
+  // å¤šçº¿ç¨‹æœç´¢ï¼Œæ¯ä¸ªçº¿ç¨‹ä¸€ä¸ªPositionInfoï¼Œåªæœ‰ç½®æ¢è¡¨æ˜¯å…±äº«çš„
+  // ä¸ºä»€ä¹ˆæ˜¯MAX_CONCURRENT - 1? å› ä¸ºæœ¬èº«å¼€å¯å…¶ä»–çº¿ç¨‹å»æœç´¢çš„çº¿ç¨‹ä¹Ÿè¦å‚ä¸æœç´¢ï¼Œå ç”¨ä¸€ä¸ªæ ¸å¿ƒ
   QVector<PositionInfo> threadPositionInfos(MAX_CONCURRENT - 1);
-  // ³õÊ¼»¯Ïß³Ì¾ÖÃæ
+  // åˆå§‹åŒ–çº¿ç¨‹å±€é¢
   for (auto &threadPositionInfo : threadPositionInfos) {
     threadPositionInfo.setThreadPositionInfo(POSITION_INFO);
   }
-  // Ê±¼ä¿ØÖÆ
+  // æ—¶é—´æ§åˆ¶
   auto startTimeStamp = clock();
   forever {
-    // ¶àÏß³ÌËÑË÷
-    QVector<QFuture<void>> tasks;
+    // å¤šçº¿ç¨‹æœç´¢
+    QVector<QFuture<Score>> tasks;
     tasks.reserve(MAX_CONCURRENT - 1);
     for (auto &threadPositionInfo : threadPositionInfos) {
-      tasks.emplaceBack(QtConcurrent::run(
-          [&] { threadPositionInfo.searchRoot(CURRENT_DEPTH); }));
+      tasks.emplaceBack(QtConcurrent::run([&] {
+        return threadPositionInfo.searchRoot(CURRENT_DEPTH);
+      }));
     }
-    // ×Ô¼ºÒ²ËÑË÷
+    // è‡ªå·±ä¹Ÿæœç´¢
     bestScore = POSITION_INFO.searchRoot(CURRENT_DEPTH);
-    // µÈ´ıÏß³Ì½áÊø
-    for (auto &task : tasks) {
-      task.waitForFinished();
+    // ç­‰å¾…çº¿ç¨‹ç»“æŸ
+    for (auto &task : tasks) task.waitForFinished();
+    // å¦‚æœèµ¢äº†æˆ–è€…è¾“äº†æˆ–è€…äº§ç”Ÿäº†é•¿å°†å±€é¢æˆ–è€…è¶…è¿‡æ—¶é—´å°±åœæ­¢æœç´¢å°±ä¸ç”¨å†å¾€ä¸‹æœç´¢äº†
+    if (bestScore < LOST_SCORE or bestScore > WIN_SCORE or
+        clock() - startTimeStamp > SEARCH_TIME) {
+      // ä»æ‰€æœ‰çš„çº¿ç¨‹ä¸­é€‰å‡ºåˆ†æ•°æœ€é«˜çš„é‚£ä¸€ä¸ªèµ°æ³•æ¥èµ°
+      for (Count index { 0 }; index < size(tasks); ++index) {
+        Score threadScore { tasks[index].result() };
+        if (bestScore < threadScore) {
+          bestScore = threadScore;
+          POSITION_INFO.mBestMove = threadPositionInfos[index].mBestMove;
+        }
+      }
+      // èµ°æ£‹
+      POSITION_INFO.makeMove(POSITION_INFO.mBestMove, COMPUTER_SIDE);
+      return bestScore;
     }
+    // å¢åŠ å±‚æ•°
     ++CURRENT_DEPTH;
-    // Èç¹ûÓ®ÁË»òÕßÊäÁË»òÕß²úÉúÁË³¤½«¾ÖÃæ¾Í²»ÓÃÔÙÍùÏÂËÑË÷ÁË
-    if (bestScore < LOST_SCORE or bestScore > WIN_SCORE) {
-      break;
-    }
-    // ³¬¹ıÊ±¼ä¾ÍÍ£Ö¹ËÑË÷
-    if (clock() - startTimeStamp > SEARCH_TIME) {
-      break;
-    }
   }
-  // ×ßÆå
-  POSITION_INFO.makeMove(POSITION_INFO.mBestMove, COMPUTER_SIDE);
-  return bestScore;
 }
 
-// ÓÃÓÚ³õÊ¼»¯¹¤×÷
+// ç”¨äºåˆå§‹åŒ–å·¥ä½œ
 inline void init() {
-  // ³õÊ¼»¯ÆåÅÌ
+  // åˆå§‹åŒ–æ£‹ç›˜
   POSITION_INFO.resetBoard();
-  // ³õÊ¼»¯CHESS_FEN
+  // åˆå§‹åŒ–CHESS_FEN
   CHESS_FEN[ROOK] = 'R';
   CHESS_FEN[KNIGHT] = 'N';
   CHESS_FEN[CANNON] = 'C';
@@ -2235,23 +2238,23 @@ inline void init() {
   for (Chess chess{9}; chess < 16; ++chess) {
     CHESS_FEN[chess] = tolower(CHESS_FEN[chess - BLACK]);
   }
-  // µçÄÔÑ¡±ß»Ö¸´
+  // ç”µè„‘é€‰è¾¹æ¢å¤
   COMPUTER_SIDE = BLACK;
-  // ³õÊ¼»¯Zobrist±í
-  // Ã·É­ÂİĞıËæ»úÊıÒıÇæ
+  // åˆå§‹åŒ–Zobristè¡¨
+  // æ¢…æ£®èºæ—‹éšæœºæ•°å¼•æ“
   mt19937 eng(time(NULL));
-  // ÕûĞÍÆ½¾ù·Ö²¼
+  // æ•´å‹å¹³å‡åˆ†å¸ƒ
   uniform_int_distribution<ZobristValue> uniDist;
-  // Ã¿Ò»¸öÆå×Ó±àºÅ 1 - 7  9 - 15
+  // æ¯ä¸€ä¸ªæ£‹å­ç¼–å· 1 - 7  9 - 15
   for (Chess chess{1}; chess < 16; ++chess) {
     if (chess == 8) {
       continue;
     }
-    // Ã¿Ò»¸öÎ»ÖÃ 51 - 203
+    // æ¯ä¸€ä¸ªä½ç½® 51 - 203
     for (Position pos{51}; pos < 204; ++pos) {
       CHESS_ZOBRIST[chess][pos] = uniDist(eng);
     }
   }
-  // ³õÊ¼»¯Ñ¡±ßËæ»úÖµ
+  // åˆå§‹åŒ–é€‰è¾¹éšæœºå€¼
   SIDE_ZOBRIST = uniDist(eng);
 }
