@@ -643,9 +643,9 @@ void Dialog::computerMove() {
       ui->ComputerScore->setText(bookOK);
       // 先尝试走一步
       POSITION_INFO.makeMove(mapTo256(step), COMPUTER_SIDE);
-      // 如果走云端走法会产生重复局面，只有自己长将军时才不采纳云端走法
-      // 其他情况：对方长将军是有利于自己的，重复局面判和棋，以和为贵
-      if (POSITION_INFO.scoreRepeatFlag(POSITION_INFO.getRepeatFlag()) != BAN_SCORE_LOSS) {
+      // 如果走云端走法会产生重复局面，只有对方长将军才采纳云端走法
+      RepeatFlag repeatFlag { POSITION_INFO.getRepeatFlag() };
+      if (repeatFlag == 0 or POSITION_INFO.scoreRepeatFlag(repeatFlag) == BAN_SCORE_MATE) {
         emit threadOK(step);
         return;
       }
@@ -693,7 +693,7 @@ void Dialog::computerMove() {
       ui->ComputerScore->setText(QString::fromLocal8Bit("长将局面"));
     } else {
       ui->ComputerScore->setText(
-          QString::fromLocal8Bit("[") + QString::number(CURRENT_DEPTH - 1) +
+          QString::fromLocal8Bit("[") + QString::number(CURRENT_DEPTH) +
           QString::fromLocal8Bit("层]") + QString::number(score));
     }
     emit threadOK(mapToStep(POSITION_INFO.mBestMove));

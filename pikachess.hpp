@@ -2182,8 +2182,7 @@ Score searchMain() {
   CURRENT_DEPTH = 1;
   Score bestScore{0};
   // 多线程搜索，每个线程一个PositionInfo，只有置换表是共享的
-  // 为什么是MAX_CONCURRENT - 1?
-  // 因为本身开启其他线程去搜索的线程也要参与搜索，占用一个核心
+  // 为什么是MAX_CONCURRENT - 1? 因为本身开启其他线程去搜索的线程也要参与搜索，占用一个核心
   QVector<PositionInfo> threadPositionInfos(MAX_CONCURRENT - 1);
   // 初始化线程局面
   for (auto &threadPositionInfo : threadPositionInfos) {
@@ -2193,31 +2192,35 @@ Score searchMain() {
   auto startTimeStamp = clock();
   forever {
     // 多线程搜索
-    QVector<QFuture<void>> tasks;
+    QVector<QFuture<Score>> tasks;
     tasks.reserve(MAX_CONCURRENT - 1);
     for (auto &threadPositionInfo : threadPositionInfos) {
-      tasks.emplaceBack(QtConcurrent::run(
-          [&] { threadPositionInfo.searchRoot(CURRENT_DEPTH); }));
+      tasks.emplaceBack(QtConcurrent::run([&] {
+        return threadPositionInfo.searchRoot(CURRENT_DEPTH);
+      }));
     }
     // 自己也搜索
     bestScore = POSITION_INFO.searchRoot(CURRENT_DEPTH);
     // 等待线程结束
-    for (auto &task : tasks) {
-      task.waitForFinished();
+    for (auto &task : tasks) task.waitForFinished();
+    // 如果赢了或者输了或者产生了长将局面或者超过时间就停止搜索就不用再往下搜索了
+    if (bestScore < LOST_SCORE or bestScore > WIN_SCORE or
+        clock() - startTimeStamp > SEARCH_TIME) {
+      // 从所有的线程中选出分数最高的那一个走法来走
+      for (Count index { 0 }; index < size(tasks); ++index) {
+        Score threadScore { tasks[index].result() };
+        if (bestScore < threadScore) {
+          bestScore = threadScore;
+          POSITION_INFO.mBestMove = threadPositionInfos[index].mBestMove;
+        }
+      }
+      // 走棋
+      POSITION_INFO.makeMove(POSITION_INFO.mBestMove, COMPUTER_SIDE);
+      return bestScore;
     }
+    // 增加层数
     ++CURRENT_DEPTH;
-    // 如果赢了或者输了或者产生了长将局面就不用再往下搜索了
-    if (bestScore < LOST_SCORE or bestScore > WIN_SCORE) {
-      break;
-    }
-    // 超过时间就停止搜索
-    if (clock() - startTimeStamp > SEARCH_TIME) {
-      break;
-    }
   }
-  // 走棋
-  POSITION_INFO.makeMove(POSITION_INFO.mBestMove, COMPUTER_SIDE);
-  return bestScore;
 }
 
 // 用于初始化工作
