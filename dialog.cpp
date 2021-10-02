@@ -9,25 +9,25 @@ Dialog::Dialog(QWidget *parent) : QDialog(parent), ui(new Ui::Dialog) {
 }
 
 void Dialog::initDialog() {
-  //°²×°±êÌâÀ¸°´Å¥ÊÂ¼ş¼à¿Ø
+  //å®‰è£…æ ‡é¢˜æ æŒ‰é’®äº‹ä»¶ç›‘æ§
   ui->CloseButton->installEventFilter(this);
   ui->MinButton->installEventFilter(this);
-  //ÉèÖÃÎŞ±ß¿ò´°¿Ú
+  //è®¾ç½®æ— è¾¹æ¡†çª—å£
   setWindowFlag(Qt::FramelessWindowHint);
-  //ÉèÖÃ´°¿ÚÍ¸Ã÷
+  //è®¾ç½®çª—å£é€æ˜
   setAttribute(Qt::WA_TranslucentBackground);
-  //ÉèÖÃ´°¿ÚÔÚÆÁÄ»ÕıÖĞÑëÏÔÊ¾
+  //è®¾ç½®çª—å£åœ¨å±å¹•æ­£ä¸­å¤®æ˜¾ç¤º
   auto desk = QApplication::primaryScreen()->geometry();
   move((desk.width() - this->width()) / 2,
        (desk.height() - this->height()) / 2);
-  //´°¿ÚÆô¶¯¶¯»­
+  //çª—å£å¯åŠ¨åŠ¨ç”»
   QPropertyAnimation *ani = new QPropertyAnimation(this, "windowOpacity");
   ani->setDuration(600);
   ani->setStartValue(0);
   ani->setEndValue(0.94);
   ani->setEasingCurve(QEasingCurve::InOutSine);
   ani->start(QPropertyAnimation::DeleteWhenStopped);
-  //ÉèÖÃ´°¿ÚÒõÓ°
+  //è®¾ç½®çª—å£é˜´å½±
   QGraphicsDropShadowEffect *shadow = new QGraphicsDropShadowEffect;
   shadow->setOffset(0, 0);
   shadow->setColor(QColor(0, 0, 0, 50));
@@ -36,11 +36,11 @@ void Dialog::initDialog() {
 }
 
 void Dialog::initChess() {
-  //°²×°ÆåÅÌÊÂ¼ş¼à¿Ø
+  //å®‰è£…æ£‹ç›˜äº‹ä»¶ç›‘æ§
   ui->ChessBoard->installEventFilter(this);
-  //°²×°mask2ÊÂ¼ş¼à¿Ø
+  //å®‰è£…mask2äº‹ä»¶ç›‘æ§
   ui->Mask2->installEventFilter(this);
-  //°²×°ËùÓĞµÄÆå×ÓÊÂ¼ş¼à¿Ø
+  //å®‰è£…æ‰€æœ‰çš„æ£‹å­äº‹ä»¶ç›‘æ§
   ui->RedChe1->installEventFilter(this);
   ui->RedChe2->installEventFilter(this);
   ui->RedMa1->installEventFilter(this);
@@ -73,11 +73,11 @@ void Dialog::initChess() {
   ui->BlackShi2->installEventFilter(this);
   ui->BlackXiang1->installEventFilter(this);
   ui->BlackXiang2->installEventFilter(this);
-  //²»¿ÉÊÓ»¯mask
+  //ä¸å¯è§†åŒ–mask
   ui->Mask1->setVisible(false);
   ui->Mask2->setVisible(false);
   ui->Mask3->setVisible(false);
-  //³õÊ¼»¯Ö¸ÕëÊı×é
+  //åˆå§‹åŒ–æŒ‡é’ˆæ•°ç»„
   mLabelPointers = {
       {ui->BlackChe1, ui->BlackMa1, ui->BlackXiang1, ui->BlackShi1,
        ui->BlackJiang, ui->BlackShi2, ui->BlackXiang2, ui->BlackMa2,
@@ -100,56 +100,56 @@ void Dialog::initChess() {
        nullptr},
       {ui->RedChe1, ui->RedMa1, ui->RedXiang1, ui->RedShi1, ui->RedJiang,
        ui->RedShi2, ui->RedXiang2, ui->RedMa2, ui->RedChe2}};
-  //ÉèÖÃ×ßÆå¶¯»­µÄ²¿·Ö²ÎÊı
+  //è®¾ç½®èµ°æ£‹åŠ¨ç”»çš„éƒ¨åˆ†å‚æ•°
   mChessMoveAni->setEasingCurve(QEasingCurve::InOutCubic);
   mChessEatAni->setEasingCurve(QEasingCurve::InOutCubic);
   mComputerMoveAni->setEasingCurve(QEasingCurve::InOutCubic);
   mMaskAni->setTargetObject(ui->Mask3);
   mMaskAni->setEasingCurve(QEasingCurve::InOutCubic);
-  //×¢²áÀàĞÍ
+  //æ³¨å†Œç±»å‹
   qRegisterMetaType<uint16_t>("uint16_t");
-  //×ßÆå¶¯»­×ßÍêÒªÇå¿ÕÒÑ¾­Ñ¡ÖĞµÄ×Ó²¢ÈÃµçÄÔ×ß×Ó
+  //èµ°æ£‹åŠ¨ç”»èµ°å®Œè¦æ¸…ç©ºå·²ç»é€‰ä¸­çš„å­å¹¶è®©ç”µè„‘èµ°å­
   connect(mChessMoveAni, &QPropertyAnimation::finished, [&] {
     mSelected = nullptr;
     computerMove();
   });
-  //³Ô×Ó³ÔÍêÒª½«±»³ÔµÄ×ÓÁ¦ÉèÖÃÎª²»¿É¼û
+  //åƒå­åƒå®Œè¦å°†è¢«åƒçš„å­åŠ›è®¾ç½®ä¸ºä¸å¯è§
   connect(mChessEatAni, &QPropertyAnimation::finished, [&] {
     mSelected = nullptr;
     mTarget->setVisible(false);
     mTarget = nullptr;
     computerMove();
   });
-  //Á¬½ÓµçÄÔ¼ÆËãÍê³ÉĞÅºÅºÍ×ß×Ó²Ûº¯Êı
+  //è¿æ¥ç”µè„‘è®¡ç®—å®Œæˆä¿¡å·å’Œèµ°å­æ§½å‡½æ•°
   connect(this, &Dialog::threadOK, this, &Dialog::makeMove);
-  //Á¬½ÓµçÄÔ×ß×ÓºóµÄ´¦Àí²Ûº¯Êı
+  //è¿æ¥ç”µè„‘èµ°å­åçš„å¤„ç†æ§½å‡½æ•°
   connect(mComputerMoveAni, &QPropertyAnimation::finished, [&] {
-    //Èç¹ûÊÇ³Ô×Ó×ß·¨£¬Òª½«¶Ô·½µÄ×ÓÁ¦ÉèÖÃÎª²»¿É¼û
+    //å¦‚æœæ˜¯åƒå­èµ°æ³•ï¼Œè¦å°†å¯¹æ–¹çš„å­åŠ›è®¾ç½®ä¸ºä¸å¯è§
     if (mTarget) {
       mTarget->setVisible(false);
     }
     mSelected = nullptr;
     mTarget = nullptr;
-    // ×ßÍêÁË£¬¿´µçÄÔÊÇ·ñÒÑ¾­Ê¤Àû
+    // èµ°å®Œäº†ï¼Œçœ‹ç”µè„‘æ˜¯å¦å·²ç»èƒœåˆ©
     if (this->mComputerWin) {
-      // µçÄÔÓ®ÁË£¬×¢Òâ´ËÊ±isMoving±£³ÖÎªtrue£¬ÕâÑù¿ÉÒÔÊ¹µÃÆå×Ó²»ÏìÓ¦Íæ¼ÒµÄ²Ù×÷
+      // ç”µè„‘èµ¢äº†ï¼Œæ³¨æ„æ­¤æ—¶isMovingä¿æŒä¸ºtrueï¼Œè¿™æ ·å¯ä»¥ä½¿å¾—æ£‹å­ä¸å“åº”ç©å®¶çš„æ“ä½œ
       this->setButtonDisabled(false);
     } else {
-      // ·ñÔò¾ÍÕı³£»Ø¸´°´Å¥ºÍisMovingµÄ×´Ì¬
+      // å¦åˆ™å°±æ­£å¸¸å›å¤æŒ‰é’®å’ŒisMovingçš„çŠ¶æ€
       this->setMoving(false);
     }
   });
-  // ³õÊ¼»¯ÒıÇæ
+  // åˆå§‹åŒ–å¼•æ“
   init();
 }
 
 Dialog::~Dialog() { delete ui; }
-//ÖØĞ´¹Ø±ÕÊÂ¼şÊµÏÖ´°¿Ú¹Ø±Õ¶¯»­
+//é‡å†™å…³é—­äº‹ä»¶å®ç°çª—å£å…³é—­åŠ¨ç”»
 void Dialog::closeEvent(QCloseEvent *event) {
   if (this->mCloseCheck == false) {
     this->mCloseCheck = true;
     event->ignore();
-    //´°¿Ú¹Ø±Õ¶¯»­
+    //çª—å£å…³é—­åŠ¨ç”»
     QPropertyAnimation *ani = new QPropertyAnimation(this, "windowOpacity");
     ani->setDuration(600);
     ani->setStartValue(0.94);
@@ -162,7 +162,7 @@ void Dialog::closeEvent(QCloseEvent *event) {
   }
 }
 
-//ÖØĞ´Êó±êÒÆ¶¯ÊÂ¼ş£¬ÊµÏÖµã»÷´°¿ÚÈÎÒâ´¦ÒÆ¶¯´°¿ÚµÄ¹¦ÄÜ
+//é‡å†™é¼ æ ‡ç§»åŠ¨äº‹ä»¶ï¼Œå®ç°ç‚¹å‡»çª—å£ä»»æ„å¤„ç§»åŠ¨çª—å£çš„åŠŸèƒ½
 void Dialog::mousePressEvent(QMouseEvent *event) {
   if (event->button() == Qt::LeftButton) {
     this->mOnDialog = true;
@@ -177,7 +177,7 @@ void Dialog::mouseMoveEvent(QMouseEvent *event) {
         event->globalPosition().toPoint() - this->mMouseStartPoint;
     this->move(this->mDialogStartPoint + MouseMoveDelta);
   } else {
-    //µ¥»÷°´×¡°´Å¥ºóÀë¿ª°´Å¥ÇøÓò£¬°´Å¥»Ø¸´Ô­Ñù
+    //å•å‡»æŒ‰ä½æŒ‰é’®åç¦»å¼€æŒ‰é’®åŒºåŸŸï¼ŒæŒ‰é’®å›å¤åŸæ ·
     this->mColorClose = QColor(212, 64, 39, 0);
     QString qssClose = QString("#CloseButton{border-image:url(:/Images/"
                                "close.ico);border-radius:5px;background: "
@@ -199,16 +199,16 @@ void Dialog::mouseReleaseEvent(QMouseEvent *event) {
   }
 }
 
-//ÊµÏÖ°´Esc¼ü¹Ø±Õ´°¿ÚÊ±Ò²ÄÜ²¥·Å¶¯»­
+//å®ç°æŒ‰Escé”®å…³é—­çª—å£æ—¶ä¹Ÿèƒ½æ’­æ”¾åŠ¨ç”»
 void Dialog::keyPressEvent(QKeyEvent *event) {
   if (event->key() == Qt::Key_Escape) {
     this->close();
   }
 }
 
-//±êÌâÀ¸°´Å¥¶¯»­
+//æ ‡é¢˜æ æŒ‰é’®åŠ¨ç”»
 bool Dialog::eventFilter(QObject *watched, QEvent *event) {
-  //¹Ø±Õ°´Å¥µãÈ¼Ğ§¹û
+  //å…³é—­æŒ‰é’®ç‚¹ç‡ƒæ•ˆæœ
   if (watched == ui->CloseButton) {
     if (event->type() == QEvent::Enter) {
       QPropertyAnimation *ani = new QPropertyAnimation(this, "mColorClose");
@@ -227,7 +227,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
       return true;
     }
   }
-  //×îĞ¡»¯°´Å¥µãÈ¼Ğ§¹û
+  //æœ€å°åŒ–æŒ‰é’®ç‚¹ç‡ƒæ•ˆæœ
   if (watched == ui->MinButton) {
     if (event->type() == QEvent::Enter) {
       QPropertyAnimation *ani = new QPropertyAnimation(this, "mColorMin");
@@ -247,12 +247,12 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
     }
   }
 
-  //½«Æå×ÓºÍ²Ù×÷Á¬½ÓÆğÀ´
+  //å°†æ£‹å­å’Œæ“ä½œè¿æ¥èµ·æ¥
   if (!this->mOnMoving and event->type() == QEvent::MouseButtonPress and
       this->isChess(watched)) {
     mTarget = dynamic_cast<QLabel *>(watched);
     if (mSelected != nullptr and mSelected->text() != mTarget->text()) {
-      //³Ô×ÓÊ±Òª¸Ä¶¯Ö¸ÕëÊı×éºÍÆåÅÌ
+      //åƒå­æ—¶è¦æ”¹åŠ¨æŒ‡é’ˆæ•°ç»„å’Œæ£‹ç›˜
       uint16_t nowRow = (mSelected->y() - ui->ChessBoard->y() - 10) / 80,
                nowCol = (mSelected->x() - ui->ChessBoard->x() - 10) / 80,
                destRow = (mTarget->y() - ui->ChessBoard->y() - 10) / 80,
@@ -267,26 +267,26 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
         event->ignore();
         return true;
       }
-      // ¿ÉÒÔ×ß£¬ÏÈ°ÑÆå×ÓËøÉÏ
+      // å¯ä»¥èµ°ï¼Œå…ˆæŠŠæ£‹å­é”ä¸Š
       this->setMoving(true);
-      // ×ß×Ó
+      // èµ°å­
       this->playerMakeMove({nowRow, nowCol, destRow, destCol});
-      //Òş²Ømask
+      //éšè—mask
       ui->Mask1->setVisible(false);
       ui->Mask2->setVisible(false);
       ui->Mask3->setVisible(false);
-      //ÒÆ¶¯mask
+      //ç§»åŠ¨mask
       ui->Mask2->move(mSelected->x(), mSelected->y());
       ui->Mask3->move(mSelected->x(), mSelected->y());
       ui->Mask2->setVisible(true);
       ui->Mask3->setVisible(true);
-      // Mask3¶¯»­
+      // Mask3åŠ¨ç”»
       mMaskAni->setStartValue(QRect(ui->Mask3->x(), ui->Mask3->y(),
                                     ui->Mask3->width(), ui->Mask3->height()));
       mMaskAni->setEndValue(QRect(mTarget->x(), mTarget->y(),
                                   ui->Mask3->width(), ui->Mask3->height()));
       mMaskAni->start();
-      //³Ô×Ó×ö¶¯»­
+      //åƒå­åšåŠ¨ç”»
       mChessEatAni->setTargetObject(mSelected);
       mChessEatAni->setStartValue(QRect(mSelected->x(), mSelected->y(),
                                         mSelected->width(),
@@ -295,7 +295,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
                                       mSelected->width(), mSelected->height()));
       mChessEatAni->start();
     } else {
-      //ÔÚÑ¡ÆåÊ±²»ÊÇ×Ô¼º·½µÄ²»ÈÃÑ¡
+      //åœ¨é€‰æ£‹æ—¶ä¸æ˜¯è‡ªå·±æ–¹çš„ä¸è®©é€‰
       if (mTarget->text() == (COMPUTER_SIDE ? "r" : "b")) {
         mSelected = mTarget;
         mSelected->raise();
@@ -318,18 +318,18 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
     return true;
   }
 
-  //×ßÆå
+  //èµ°æ£‹
   if (!this->mOnMoving and mSelected != nullptr and
       event->type() == QEvent::MouseButtonPress and
       (watched == ui->ChessBoard or watched == ui->Mask2)) {
-    //»ñÈ¡ÆåÅÌ×óÉÏ½ÇµÄ×ø±ê
+    //è·å–æ£‹ç›˜å·¦ä¸Šè§’çš„åæ ‡
     QPoint global = ui->ChessBoard->mapToGlobal(QPoint(0, 0));
-    //¼ÓÉÏ10µÈÓÚµÚÒ»¸öºÚ³µ×óÉÏ½ÇµÄÎ»ÖÃ,ÓÃ¸ÃÎ»ÖÃÀ´»ñÈ¡Òª×ßµ½ÄÄÀïÈ¥
+    //åŠ ä¸Š10ç­‰äºç¬¬ä¸€ä¸ªé»‘è½¦å·¦ä¸Šè§’çš„ä½ç½®,ç”¨è¯¥ä½ç½®æ¥è·å–è¦èµ°åˆ°å“ªé‡Œå»
     global.setX(global.x() + 10);
     global.setY(global.y() + 10);
-    //»ñÈ¡ÒªÈ¥µÄÎ»ÖÃÏà¶ÔµÚÒ»¸öºÚ³µ×ø±ê
+    //è·å–è¦å»çš„ä½ç½®ç›¸å¯¹ç¬¬ä¸€ä¸ªé»‘è½¦åæ ‡
     QPoint relativePos{QCursor::pos() - global};
-    //×ßÆåÊ±Òª¸Ä¶¯Ö¸ÕëÊı×éºÍÆåÅÌ
+    //èµ°æ£‹æ—¶è¦æ”¹åŠ¨æŒ‡é’ˆæ•°ç»„å’Œæ£‹ç›˜
     uint16_t nowRow = (mSelected->y() - ui->ChessBoard->y() - 10) / 80,
              nowCol = (mSelected->x() - ui->ChessBoard->x() - 10) / 80,
              destRow = relativePos.y() / 80, destCol = relativePos.x() / 80;
@@ -343,33 +343,33 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
       event->ignore();
       return true;
     }
-    // ¿ÉÒÔ×ß£¬ÏÈ°ÑÆå×ÓËøÉÏ
+    // å¯ä»¥èµ°ï¼Œå…ˆæŠŠæ£‹å­é”ä¸Š
     this->setMoving(true);
-    // ×ß×Óºó²»ÄÜÔÙ¸Ä±ä±ß
+    // èµ°å­åä¸èƒ½å†æ”¹å˜è¾¹
     ui->PlayerSide->setDisabled(true);
     this->playerMakeMove({nowRow, nowCol, destRow, destCol});
-    // ¼ÆËã¾«È·µÄÏà¶ÔºÚ³µµÄ×ø±ê
+    // è®¡ç®—ç²¾ç¡®çš„ç›¸å¯¹é»‘è½¦çš„åæ ‡
     QPoint destPos{relativePos.x() / 80 * 80, relativePos.y() / 80 * 80};
-    // Ëã³öÏà¶ÔÆåÅÌµÚÒ»¸öºÚ³µÎ»ÖÃµÄÏà¶Ô×ø±êºó
-    // ¼ÓÉÏµÚÒ»¸öºÚ³µÏà¶Ô´°¿Ú×óÉÏ½ÇµÄ×ø±ê¾Í¿ÉÒÔµÃµ½ÒªÈ¥µÄÎ»ÖÃÁË
+    // ç®—å‡ºç›¸å¯¹æ£‹ç›˜ç¬¬ä¸€ä¸ªé»‘è½¦ä½ç½®çš„ç›¸å¯¹åæ ‡å
+    // åŠ ä¸Šç¬¬ä¸€ä¸ªé»‘è½¦ç›¸å¯¹çª—å£å·¦ä¸Šè§’çš„åæ ‡å°±å¯ä»¥å¾—åˆ°è¦å»çš„ä½ç½®äº†
     destPos.setX(ui->ChessBoard->x() + 10 + destPos.x());
     destPos.setY(ui->ChessBoard->y() + 10 + destPos.y());
-    // Òş²Ømask
+    // éšè—mask
     ui->Mask1->setVisible(false);
     ui->Mask2->setVisible(false);
     ui->Mask3->setVisible(false);
-    // ÒÆ¶¯mask
+    // ç§»åŠ¨mask
     ui->Mask2->move(mSelected->x(), mSelected->y());
     ui->Mask3->move(mSelected->x(), mSelected->y());
     ui->Mask2->setVisible(true);
     ui->Mask3->setVisible(true);
-    // Mask3¶¯»­
+    // Mask3åŠ¨ç”»
     mMaskAni->setStartValue(QRect(ui->Mask3->x(), ui->Mask3->y(),
                                   ui->Mask3->width(), ui->Mask3->height()));
     mMaskAni->setEndValue(QRect(destPos.x(), destPos.y(), ui->Mask3->width(),
                                 ui->Mask3->height()));
     mMaskAni->start();
-    // ×ö¶¯»­
+    // åšåŠ¨ç”»
     mChessMoveAni->setTargetObject(mSelected);
     mChessMoveAni->setStartValue(QRect(mSelected->x(), mSelected->y(),
                                        mSelected->width(),
@@ -381,9 +381,9 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
   }
   return false;
 }
-// »ñÈ¡¹Ø±Õ°´Å¥ÑÕÉ«
+// è·å–å…³é—­æŒ‰é’®é¢œè‰²
 QColor Dialog::getColorClose() const { return this->mColorClose; }
-// ÉèÖÃ¹Ø±Õ°´Å¥ÑÕÉ«
+// è®¾ç½®å…³é—­æŒ‰é’®é¢œè‰²
 void Dialog::setColorClose(const QColor color) {
   this->mColorClose = color;
   QString qss =
@@ -397,9 +397,9 @@ void Dialog::setColorClose(const QColor color) {
           .arg(color.alpha());
   ui->CloseButton->setStyleSheet(qss);
 }
-//»ñµÃ×îĞ¡»¯°´Å¥ÑÕÉ«
+//è·å¾—æœ€å°åŒ–æŒ‰é’®é¢œè‰²
 QColor Dialog::getColorMin() const { return this->mColorMin; }
-//ÉèÖÃ×îĞ¡»¯°´Å¥ÑÕÉ«
+//è®¾ç½®æœ€å°åŒ–æŒ‰é’®é¢œè‰²
 void Dialog::setColorMin(const QColor color) {
   this->mColorMin = color;
   QString qss =
@@ -413,32 +413,32 @@ void Dialog::setColorMin(const QColor color) {
           .arg(color.alpha());
   ui->MinButton->setStyleSheet(qss);
 }
-//´°¿Ú°´Å¥ÊÂ¼ş
+//çª—å£æŒ‰é’®äº‹ä»¶
 void Dialog::on_CloseButton_clicked() { this->close(); }
 
 void Dialog::on_MinButton_clicked() { this->showMinimized(); }
 
-//Ñ¡ÔñºìºÚ²Û
+//é€‰æ‹©çº¢é»‘æ§½
 void Dialog::on_PlayerSide_currentIndexChanged(int index) {
   ui->PlayerSide->setDisabled(true);
   COMPUTER_SIDE = index ? RED : BLACK;
-  //µçÄÔºì×Ó
+  //ç”µè„‘çº¢å­
   if (COMPUTER_SIDE == RED) {
-    //Èç¹ûÆåÅÌÃ»·­×ª£¬ÄÇÃ´·­×ªÒ»ÏÂ
+    //å¦‚æœæ£‹ç›˜æ²¡ç¿»è½¬ï¼Œé‚£ä¹ˆç¿»è½¬ä¸€ä¸‹
     if (!this->mIsFliped) {
       on_Flip_clicked();
       QEventLoop eventLoop;
       QTimer::singleShot(600, &eventLoop, &QEventLoop::quit);
       eventLoop.exec();
     }
-    //µçÄÔ×ßºì×Ó£¬ÏÈĞĞÆå
+    //ç”µè„‘èµ°çº¢å­ï¼Œå…ˆè¡Œæ£‹
     computerMove();
   }
 }
 
-// µçÄÔÄÑ¶ÈÑ¡Ôñ
+// ç”µè„‘éš¾åº¦é€‰æ‹©
 void Dialog::on_ComputerHard_currentIndexChanged(int index) {
-  // µçÄÔÃ¿Ò»²½ÖÁÉÙËÑË÷¶à³¤Ê±¼ä£¨µ¥Î»£ººÁÃë£©
+  // ç”µè„‘æ¯ä¸€æ­¥è‡³å°‘æœç´¢å¤šé•¿æ—¶é—´ï¼ˆå•ä½ï¼šæ¯«ç§’ï¼‰
   switch (index) {
   case 0:
     SEARCH_TIME = 1500;
@@ -451,10 +451,10 @@ void Dialog::on_ComputerHard_currentIndexChanged(int index) {
   }
 }
 
-// ·­×ª°´Å¥µã»÷²Ûº¯Êı
+// ç¿»è½¬æŒ‰é’®ç‚¹å‡»æ§½å‡½æ•°
 void Dialog::on_Flip_clicked() {
   this->setMoving(true);
-  // ·­×ª²»ĞèÒªËøÄÑ¶È°´Å¥
+  // ç¿»è½¬ä¸éœ€è¦é”éš¾åº¦æŒ‰é’®
   ui->HardSelectionBox->setDisabled(false);
   for (uint16_t row = 0; row < 10; ++row)
     for (uint16_t col = 0; col < 9; ++col) {
@@ -467,11 +467,11 @@ void Dialog::on_Flip_clicked() {
         moveAni->setStartValue(
             QRect(target->x(), target->y(), target->width(), target->height()));
         if (this->mIsFliped) {
-          //ÒÑ¾­·­×ªÁË£¬ÏÖÔÚÒª·­»ØÈ¥
+          //å·²ç»ç¿»è½¬äº†ï¼Œç°åœ¨è¦ç¿»å›å»
           moveAni->setEndValue(QRect(30 + 80 * col, 90 + 80 * row,
                                      target->width(), target->height()));
         } else {
-          //»¹Ã»ÓĞ·­×ª£¬ÏÖÔÚ·­×ª
+          //è¿˜æ²¡æœ‰ç¿»è½¬ï¼Œç°åœ¨ç¿»è½¬
           moveAni->setEndValue(QRect(670 - 80 * col, 810 - 80 * row,
                                      target->width(), target->height()));
         }
@@ -497,7 +497,7 @@ void Dialog::on_Flip_clicked() {
   moveAni3->setStartValue(QRect(ui->Mask3->x(), ui->Mask3->y(),
                                 ui->Mask3->width(), ui->Mask3->height()));
   if (this->mIsFliped) {
-    //ÒÑ¾­·­×ªÁË£¬ÏÖÔÚÒª·­»ØÈ¥
+    //å·²ç»ç¿»è½¬äº†ï¼Œç°åœ¨è¦ç¿»å›å»
     moveAni1->setEndValue(QRect(700 - ui->Mask1->x(), 900 - ui->Mask1->y(),
                                 ui->Mask1->width(), ui->Mask1->height()));
     moveAni2->setEndValue(QRect(700 - ui->Mask2->x(), 900 - ui->Mask2->y(),
@@ -505,7 +505,7 @@ void Dialog::on_Flip_clicked() {
     moveAni3->setEndValue(QRect(700 - ui->Mask3->x(), 900 - ui->Mask3->y(),
                                 ui->Mask3->width(), ui->Mask3->height()));
   } else {
-    //»¹Ã»ÓĞ·­×ª£¬ÏÖÔÚ·­×ª
+    //è¿˜æ²¡æœ‰ç¿»è½¬ï¼Œç°åœ¨ç¿»è½¬
     moveAni1->setEndValue(QRect(700 - ui->Mask1->x(), 900 - ui->Mask1->y(),
                                 ui->Mask1->width(), ui->Mask1->height()));
     moveAni2->setEndValue(QRect(700 - ui->Mask2->x(), 900 - ui->Mask2->y(),
@@ -521,29 +521,29 @@ void Dialog::on_Flip_clicked() {
   this->mIsFliped = !this->mIsFliped;
 }
 
-// ÖØÖÃÆåÅÌ²Ûº¯Êı
+// é‡ç½®æ£‹ç›˜æ§½å‡½æ•°
 void Dialog::on_Reset_clicked() {
   this->setMoving(true);
-  // ÖØÖÃ²»ĞèÒªËøÄÑ¶È
+  // é‡ç½®ä¸éœ€è¦é”éš¾åº¦
   ui->HardSelectionBox->setDisabled(false);
-  // ÖØÖÃ¾ÖÃæĞÅÏ¢
+  // é‡ç½®å±€é¢ä¿¡æ¯
   ::init();
-  // ÖØÖÃµçÄÔÊ¤Àû±êÖ¾
+  // é‡ç½®ç”µè„‘èƒœåˆ©æ ‡å¿—
   this->mComputerWin = false;
-  // ÖØÆô±ßÑ¡ÔñÆ÷
+  // é‡å¯è¾¹é€‰æ‹©å™¨
   ui->PlayerSide->setCurrentIndex(0);
   ui->PlayerSide->setDisabled(false);
-  // ÖØÖÃÔÆ¿ª¾Ö¿â±êÖ¾
-  ui->ComputerScore->setText(QString::fromLocal8Bit("ÔÆ¿â³ö²½"));
+  // é‡ç½®äº‘å¼€å±€åº“æ ‡å¿—
+  ui->ComputerScore->setText("äº‘åº“å‡ºæ­¥");
   ui->ComputerScore->setStyleSheet("font:40px;color:green;");
-  ui->ComputerScoreBox->setTitle(QString::fromLocal8Bit("ÖĞ¹úÏóÆåÔÆ¿â"));
-  // ÖØÖÃisFliped±êÖ¾
+  ui->ComputerScoreBox->setTitle("ä¸­å›½è±¡æ£‹äº‘åº“");
+  // é‡ç½®isFlipedæ ‡å¿—
   this->mIsFliped = false;
-  // ÉèÖÃmaskÎª²»¿É¼û
+  // è®¾ç½®maskä¸ºä¸å¯è§
   ui->Mask1->setVisible(false);
   ui->Mask2->setVisible(false);
   ui->Mask3->setVisible(false);
-  // ÖØÖÃÖ¸ÕëÊı×é
+  // é‡ç½®æŒ‡é’ˆæ•°ç»„
   mLabelPointers = {
       {ui->BlackChe1, ui->BlackMa1, ui->BlackXiang1, ui->BlackShi1,
        ui->BlackJiang, ui->BlackShi2, ui->BlackXiang2, ui->BlackMa2,
@@ -591,22 +591,22 @@ void Dialog::on_Reset_clicked() {
 
 void Dialog::makeMove(Step step) {
   auto [nowRow, nowCol, destRow, destCol] = step;
-  //Òş²ØËùÓĞmask
+  //éšè—æ‰€æœ‰mask
   ui->Mask1->setVisible(false);
   ui->Mask2->setVisible(false);
   ui->Mask3->setVisible(false);
   mLabelPointers[nowRow][nowCol]->raise();
   mTarget = mLabelPointers[destRow][destCol];
   mSelected = mLabelPointers[nowRow][nowCol];
-  //ÒÆ¶¯mask
+  //ç§»åŠ¨mask
   ui->Mask2->move(mSelected->x(), mSelected->y());
   ui->Mask3->move(mSelected->x(), mSelected->y());
   ui->Mask2->setVisible(true);
   ui->Mask3->setVisible(true);
-  // Mask3¶¯»­
+  // Mask3åŠ¨ç”»
   mMaskAni->setStartValue(QRect(ui->Mask3->x(), ui->Mask3->y(),
                                 ui->Mask3->width(), ui->Mask3->height()));
-  //×ö¶¯»­
+  //åšåŠ¨ç”»
   mComputerMoveAni->setTargetObject(mSelected);
   mComputerMoveAni->setStartValue(QRect(
       mSelected->x(), mSelected->y(), mSelected->width(), mSelected->height()));
@@ -635,28 +635,28 @@ void Dialog::makeMove(Step step) {
 
 void Dialog::computerMove() {
   QFuture future{QtConcurrent::run([&] {
-    // ÏÈËÑË÷ÔÆ¿ª¾Ö¿â
+    // å…ˆæœç´¢äº‘å¼€å±€åº“
     const auto &[bookOK, step] = this->searchBook();
-    if (bookOK == QString::fromLocal8Bit("ÔÆ¿â³ö²½")) {
-      ui->ComputerScoreBox->setTitle(QString::fromLocal8Bit("ÖĞ¹úÏóÆåÔÆ¿â"));
+    if (bookOK == "äº‘åº“å‡ºæ­¥") {
+      ui->ComputerScoreBox->setTitle("ä¸­å›½è±¡æ£‹äº‘åº“");
       ui->ComputerScore->setStyleSheet("font:40px;color:green;");
       ui->ComputerScore->setText(bookOK);
-      // ÏÈ³¢ÊÔ×ßÒ»²½
+      // å…ˆå°è¯•èµ°ä¸€æ­¥
       POSITION_INFO.makeMove(mapTo256(step), COMPUTER_SIDE);
-      // Èç¹û×ßÔÆ¶Ë×ß·¨»á²úÉúÖØ¸´¾ÖÃæ£¬Ö»ÓĞ¶Ô·½³¤½«¾ü²Å²ÉÄÉÔÆ¶Ë×ß·¨
+      // å¦‚æœèµ°äº‘ç«¯èµ°æ³•ä¼šäº§ç”Ÿé‡å¤å±€é¢ï¼Œåªæœ‰å¯¹æ–¹é•¿å°†å†›æ‰é‡‡çº³äº‘ç«¯èµ°æ³•
       RepeatFlag repeatFlag { POSITION_INFO.getRepeatFlag() };
       if (repeatFlag == 0 or POSITION_INFO.scoreRepeatFlag(repeatFlag) == BAN_SCORE_MATE) {
         emit threadOK(step);
         return;
       }
-      // ¸Ã²½»áµ¼ÖÂ×Ô¼º³¤½«¾ü£¬²»ÄÜ×ß£¬³·»Ø
+      // è¯¥æ­¥ä¼šå¯¼è‡´è‡ªå·±é•¿å°†å†›ï¼Œä¸èƒ½èµ°ï¼Œæ’¤å›
       POSITION_INFO.unMakeMove(mapTo256(step), COMPUTER_SIDE);
     }
-    // ÔÆ¿ª¾Ö¿âÎŞ¶ÔÓ¦×ß·¨»òÕß¿ª¾Ö¿â×ß·¨µ¼ÖÂÎÒ·½³¤½«¾ü£¬ÓÉÒıÇæ³ö²½
+    // äº‘å¼€å±€åº“æ— å¯¹åº”èµ°æ³•æˆ–è€…å¼€å±€åº“èµ°æ³•å¯¼è‡´æˆ‘æ–¹é•¿å°†å†›ï¼Œç”±å¼•æ“å‡ºæ­¥
     Score score = searchMain();
-    // ÏÔÊ¾MetaInfo
-    ui->ComputerScoreBox->setTitle(QString::fromLocal8Bit("µçÄÔ¾ÖÃæ·Ö"));
-    // ¸ù¾İÇé¿öÉèÖÃ×ÖÌåÑÕÉ«
+    // æ˜¾ç¤ºMetaInfo
+    ui->ComputerScoreBox->setTitle("ç”µè„‘å±€é¢åˆ†");
+    // æ ¹æ®æƒ…å†µè®¾ç½®å­—ä½“é¢œè‰²
     if (score > 0) {
       ui->ComputerScore->setStyleSheet("font:40px;color:green;");
     } else if (score < 0) {
@@ -664,37 +664,34 @@ void Dialog::computerMove() {
     } else {
       ui->ComputerScore->setStyleSheet("font:40px;");
     }
-    // ¸ù¾İ·ÖÊıĞ´ÌáÊ¾
+    // æ ¹æ®åˆ†æ•°å†™æç¤º
     if (score == MATE_SCORE - 1) {
-      // ÌáÊ¾µçÄÔÊ¤Àû
-      ui->ComputerScore->setText(QString::fromLocal8Bit("µçÄÔ»ñÊ¤"));
-      // ÉèÖÃµçÄÔÊ¤Àû±êÖ¾
+      // æç¤ºç”µè„‘èƒœåˆ©
+      ui->ComputerScore->setText("ç”µè„‘è·èƒœ");
+      // è®¾ç½®ç”µè„‘èƒœåˆ©æ ‡å¿—
       this->mComputerWin = true;
     } else if (score == LOSS_SCORE) {
-      // ÌáÊ¾Íæ¼ÒÊ¤Àû
-      ui->ComputerScore->setText(QString::fromLocal8Bit("Íæ¼Ò»ñÊ¤"));
-      // Íæ¼Ò»ñÊ¤£¬µçÄÔÎŞ·¨×ßÆå£¬Ö±½Ó½âËø°´Å¥²¢·µ»Ø
-      // ×¢Òâ´ËÊ±isMoving±£³ÖÎªtrue£¬ÕâÑù¿ÉÒÔÊ¹µÃÆå×Ó²»ÏìÓ¦Íæ¼ÒµÄ²Ù×÷
+      // æç¤ºç©å®¶èƒœåˆ©
+      ui->ComputerScore->setText("ç©å®¶è·èƒœ");
+      // ç©å®¶è·èƒœï¼Œç”µè„‘æ— æ³•èµ°æ£‹ï¼Œç›´æ¥è§£é”æŒ‰é’®å¹¶è¿”å›
+      // æ³¨æ„æ­¤æ—¶isMovingä¿æŒä¸ºtrueï¼Œè¿™æ ·å¯ä»¥ä½¿å¾—æ£‹å­ä¸å“åº”ç©å®¶çš„æ“ä½œ
       this->setButtonDisabled(false);
       return;
     } else if (score > BAN_SCORE_MATE) {
-      // Èç¹ûµçÄÔ¿ìÓ®ÁË
-      ui->ComputerScore->setText(
-          QString::number((MATE_SCORE - score - 1) / 2) +
-          QString::fromLocal8Bit("²½»ñÊ¤"));
+      // å¦‚æœç”µè„‘å¿«èµ¢äº†
+      ui->ComputerScore->setText(QString::number((MATE_SCORE - score - 1) / 2) + "æ­¥è·èƒœ");
     } else if (score < BAN_SCORE_LOSS) {
-      // Èç¹ûµçÄÔ¿ìÊäÁË
-      ui->ComputerScore->setText(QString::number((score - LOSS_SCORE) / 2) +
-                                 QString::fromLocal8Bit("²½Âä°Ü"));
-    } else if ((score > BAN_SCORE_LOSS and score < LOST_SCORE) or (score > WIN_SCORE and score < BAN_SCORE_MATE)) {
-      // Èç¹û²úÉúÁË³¤½«¾ÖÃæ
-      // ÏÔÊ¾MetaInfo
-      ui->ComputerScoreBox->setTitle(QString::fromLocal8Bit("¾ÖÃæ×´Ì¬"));
-      ui->ComputerScore->setText(QString::fromLocal8Bit("³¤½«¾ÖÃæ"));
+      // å¦‚æœç”µè„‘å¿«è¾“äº†
+      ui->ComputerScore->setText(QString::number((score - LOSS_SCORE) / 2) + "æ­¥è½è´¥");
+    } else if ((score > BAN_SCORE_LOSS and score < LOST_SCORE) or
+               (score > WIN_SCORE and score < BAN_SCORE_MATE)) {
+      // å¦‚æœäº§ç”Ÿäº†é•¿å°†å±€é¢
+      // æ˜¾ç¤ºMetaInfo
+      ui->ComputerScoreBox->setTitle("å±€é¢çŠ¶æ€");
+      ui->ComputerScore->setText("é•¿å°†å±€é¢");
     } else {
-      ui->ComputerScore->setText(
-          QString::fromLocal8Bit("[") + QString::number(CURRENT_DEPTH) +
-          QString::fromLocal8Bit("²ã]") + QString::number(score));
+      ui->ComputerScore->setText("[" + QString::number(CURRENT_DEPTH) + "å±‚]" +
+                                 QString::number(score));
     }
     emit threadOK(mapToStep(POSITION_INFO.mBestMove));
   })};
@@ -721,12 +718,12 @@ inline bool Dialog::isChess(const QObject *object) {
 
 inline bool Dialog::canMove(const Move move) {
   bool canMove{false};
-  // Èç¹û²»ÊÇºÏ·¨µÄ²½£¬¾Í²»¸ø×ß
+  // å¦‚æœä¸æ˜¯åˆæ³•çš„æ­¥ï¼Œå°±ä¸ç»™èµ°
   if (POSITION_INFO.isLegalMove(move, getOppSide(COMPUTER_SIDE))) {
-    // ÊÔ×Å×ßÒ»ÏÂ£¬¿´ÊÇ·ñ±»½«¾ü
+    // è¯•ç€èµ°ä¸€ä¸‹ï¼Œçœ‹æ˜¯å¦è¢«å°†å†›
     canMove = POSITION_INFO.makeMove(move, getOppSide(COMPUTER_SIDE));
     if (canMove) {
-      // Èç¹ûÄÜ×ß¾Í»¹Ô­£¬²»ÄÜ×ßµÄ»°ÒÑ¾­ÔÚmakeMoveº¯ÊıÀïÃæ»¹Ô­ÁË£¬Ã»±ØÒªÔÙ»¹Ô­
+      // å¦‚æœèƒ½èµ°å°±è¿˜åŸï¼Œä¸èƒ½èµ°çš„è¯å·²ç»åœ¨makeMoveå‡½æ•°é‡Œé¢è¿˜åŸäº†ï¼Œæ²¡å¿…è¦å†è¿˜åŸ
       POSITION_INFO.unMakeMove(move, getOppSide(COMPUTER_SIDE));
     }
   }
@@ -736,14 +733,14 @@ inline bool Dialog::canMove(const Move move) {
 inline void Dialog::playerMakeMove(const Step &step) {
   auto &[nowRow, nowCol, destRow, destCol] = step;
   POSITION_INFO.makeMove(this->mapTo256(step), getOppSide(COMPUTER_SIDE));
-  // ±êÇ©Ò²Òª¸ú×Å×ß
+  // æ ‡ç­¾ä¹Ÿè¦è·Ÿç€èµ°
   this->mLabelPointers[destRow][destCol] = this->mLabelPointers[nowRow][nowCol];
   this->mLabelPointers[nowRow][nowCol] = nullptr;
 }
 
 inline Move Dialog::mapTo256(const Step &step) {
   const auto &[fromX, fromY, toX, toY] = step;
-  // Ëã³ö¾ßÌåµÄÎ»ÖÃ
+  // ç®—å‡ºå…·ä½“çš„ä½ç½®
   return toMove(51 + fromX * 16 + fromY, 51 + toX * 16 + toY);
 }
 
@@ -754,12 +751,12 @@ inline Step Dialog::mapToStep(const Move move) {
 
 inline void Dialog::setButtonDisabled(const bool disabled) {
   if (disabled) {
-    // Èç¹ûGUIÕıÔÚ²¥·Å¶¯»­»òµçÄÔÕıÔÚË¼¿¼£¬½çÃæÈı¸ö°´Å¥½ûÖ¹µã»÷
+    // å¦‚æœGUIæ­£åœ¨æ’­æ”¾åŠ¨ç”»æˆ–ç”µè„‘æ­£åœ¨æ€è€ƒï¼Œç•Œé¢ä¸‰ä¸ªæŒ‰é’®ç¦æ­¢ç‚¹å‡»
     ui->HardSelectionBox->setDisabled(true);
     ui->Reset->setDisabled(true);
     ui->Flip->setDisabled(true);
   } else {
-    // ·ñÔò»Ö¸´½çÃæÈı¸ö°´Å¥µÄµã»÷
+    // å¦åˆ™æ¢å¤ç•Œé¢ä¸‰ä¸ªæŒ‰é’®çš„ç‚¹å‡»
     ui->HardSelectionBox->setDisabled(false);
     ui->Reset->setDisabled(false);
     ui->Flip->setDisabled(false);
@@ -771,35 +768,35 @@ inline void Dialog::setMoving(const bool isMoving) {
   this->setButtonDisabled(isMoving);
 }
 
-// ²éÕÒÔÆ¿ª¾Ö¿â
+// æŸ¥æ‰¾äº‘å¼€å±€åº“
 inline tuple<QString, Step> Dialog::searchBook() {
   QNetworkAccessManager cloudBook;
-  // ËÑË÷¿ª¾Ö¿â
+  // æœç´¢å¼€å±€åº“
   QNetworkReply *cloudReply = cloudBook.get(
       QNetworkRequest{"http://www.chessdb.cn/chessdb.php?action=queryall&board=" +
                       QString::fromStdString(POSITION_INFO.fenGen())}
   );
-  // µÈ´ıÇëÇóÍê³É
+  // ç­‰å¾…è¯·æ±‚å®Œæˆ
   QEventLoop event;
   connect(cloudReply, &QNetworkReply::finished, &event, &QEventLoop::quit);
   event.exec();
   QList<QByteArray> cloudResult{cloudReply->readAll().split(',').at(0).split(':')};
-  //Î´ÁªÍø»ò»ñÈ¡Ê§°Ü
+  //æœªè”ç½‘æˆ–è·å–å¤±è´¥
   if (cloudResult.at(0).isEmpty()) {
-    return {QString::fromLocal8Bit("ÏóÆåÒıÇæ"), {0, 0, 0, 0}};
+    return {"è±¡æ£‹å¼•æ“", {0, 0, 0, 0}};
   }
-  //·Ö¸îÈ¡×ß·¨
+  //åˆ†å‰²å–èµ°æ³•
   QString cloudTag = cloudResult.at(0);
-  //ÔÆ¿âÎŞ¶ÔÓ¦ÕĞ·¨
+  //äº‘åº“æ— å¯¹åº”æ‹›æ³•
   if (cloudTag != "move") {
-    return {QString::fromLocal8Bit("ÏóÆåÒıÇæ"), {0, 0, 0, 0}};
+    return {"è±¡æ£‹å¼•æ“", {0, 0, 0, 0}};
   } else {
     QString cloudMove = cloudResult.at(1);
-    //×ßÆå
+    //èµ°æ£‹
     uint16_t nowRow = 9 - (cloudMove.at(1).unicode() - '0');
     uint16_t nowCol = cloudMove.at(0).unicode() - 'a';
     uint16_t destRow = 9 - (cloudMove.at(3).unicode() - '0');
     uint16_t destCol = cloudMove.at(2).unicode() - 'a';
-    return {QString::fromLocal8Bit("ÔÆ¿â³ö²½"), {nowRow, nowCol, destRow, destCol}};
+    return {"äº‘åº“å‡ºæ­¥", {nowRow, nowCol, destRow, destCol}};
   }
 }

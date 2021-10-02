@@ -25,27 +25,27 @@ class Dialog : public QDialog {
 public:
   Dialog(QWidget *parent = nullptr);
   ~Dialog();
-  // Ö´ĞĞËùÓĞµÄ´°¿Ú³õÊ¼»¯¶¯×÷
+  // æ‰§è¡Œæ‰€æœ‰çš„çª—å£åˆå§‹åŒ–åŠ¨ä½œ
   void initDialog();
-  // Ö´ĞĞËùÓĞµÄÆåÅÌÓĞ¹ØµÄ³õÊ¼»¯¶¯×÷
+  // æ‰§è¡Œæ‰€æœ‰çš„æ£‹ç›˜æœ‰å…³çš„åˆå§‹åŒ–åŠ¨ä½œ
   void initChess();
-  // Íæ¼Ò×ßÆå
+  // ç©å®¶èµ°æ£‹
   void playerMakeMove(const Step &step);
-  // µçÄÔ×ßÆå
+  // ç”µè„‘èµ°æ£‹
   void computerMove();
-  // ÅĞ¶ÏÒ»¸ö¶ÔÏóÊÇ·ñÊÇÆå×ÓÀàĞÍ
+  // åˆ¤æ–­ä¸€ä¸ªå¯¹è±¡æ˜¯å¦æ˜¯æ£‹å­ç±»å‹
   inline bool isChess(const QObject *object);
-  // ÅĞ¶ÏÊÇ·ñ¿ÉÒÔ×ß
+  // åˆ¤æ–­æ˜¯å¦å¯ä»¥èµ°
   inline bool canMove(const Move move);
-  // ½«Ò»¸ö10x9±íÊ¾·¨µÄ×ß·¨×ª»»Îª256±íÊ¾·¨
+  // å°†ä¸€ä¸ª10x9è¡¨ç¤ºæ³•çš„èµ°æ³•è½¬æ¢ä¸º256è¡¨ç¤ºæ³•
   inline Move mapTo256(const Step &step);
-  // ½«Ò»¸ö256±íÊ¾·¨µÄ×ß·¨×ª»»Îª10x9±íÊ¾·¨
+  // å°†ä¸€ä¸ª256è¡¨ç¤ºæ³•çš„èµ°æ³•è½¬æ¢ä¸º10x9è¡¨ç¤ºæ³•
   inline Step mapToStep(const Move move);
-  // ÉèÖÃ°´Å¥×´Ì¬£¬¿Éµã»÷/²»¿Éµã»÷
+  // è®¾ç½®æŒ‰é’®çŠ¶æ€ï¼Œå¯ç‚¹å‡»/ä¸å¯ç‚¹å‡»
   inline void setButtonDisabled(const bool disable);
-  // ÉèÖÃ×ßÆå×´Ì¬
+  // è®¾ç½®èµ°æ£‹çŠ¶æ€
   inline void setMoving(const bool isMoving);
-  // »ñÈ¡ÔÆ¿ª¾Ö¿â×ß·¨
+  // è·å–äº‘å¼€å±€åº“èµ°æ³•
   inline std::tuple<QString, Step> searchBook();
 
 protected:
@@ -75,7 +75,7 @@ private slots:
   void on_ComputerHard_currentIndexChanged(int index);
 
 private:
-  // ´°¿ÚÏà¹ØµÄ³ÉÔ±
+  // çª—å£ç›¸å…³çš„æˆå‘˜
   Ui::Dialog *ui;
   bool mCloseCheck{false};
   bool mOnDialog{false};
@@ -88,7 +88,7 @@ private:
   void setColorMin(const QColor color);
   QColor mColorMin{QColor(38, 169, 218, 0)};
 
-  //ÕâĞ©ÊÇ×ß×Ó³Ô×ÓËù±ØĞë»ñµÃµÄ¶ÔÏóÖ¸ÕëºÍ¶¯»­
+  //è¿™äº›æ˜¯èµ°å­åƒå­æ‰€å¿…é¡»è·å¾—çš„å¯¹è±¡æŒ‡é’ˆå’ŒåŠ¨ç”»
   QLabel *mSelected{nullptr};
   QLabel *mTarget{nullptr};
   QPropertyAnimation *mChessMoveAni{
@@ -99,13 +99,13 @@ private:
       new QPropertyAnimation(mSelected, "geometry")};
   QPropertyAnimation *mMaskAni{new QPropertyAnimation(this, "geometry")};
 
-  // ×ßÆåÊ±²»¸øÓÃ»§ÂÒ¶¯
+  // èµ°æ£‹æ—¶ä¸ç»™ç”¨æˆ·ä¹±åŠ¨
   bool mOnMoving{false};
 
-  // µçÄÔÊÇ·ñÊ¤Àû
+  // ç”µè„‘æ˜¯å¦èƒœåˆ©
   bool mComputerWin{false};
 
-  //Õâ¸öÊÇÌá¹©¸øµçÄÔ×ß×ÓµÄ¶ÔÏóÖ¸Õë¶şÎ¬Êı×é
+  //è¿™ä¸ªæ˜¯æä¾›ç»™ç”µè„‘èµ°å­çš„å¯¹è±¡æŒ‡é’ˆäºŒç»´æ•°ç»„
   QVector<QVector<QLabel *>> mLabelPointers;
   bool mIsFliped{false};
 };
