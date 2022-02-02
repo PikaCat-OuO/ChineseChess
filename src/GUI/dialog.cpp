@@ -1,11 +1,11 @@
 #include "dialog.h"
-#include "pikachess.hpp"
 #include "ui_dialog.h"
 
 Dialog::Dialog(QWidget *parent) : QDialog(parent), ui(new Ui::Dialog) {
   ui->setupUi(this);
   this->initDialog();
   this->initChess();
+  this->m_chessEngine = new PikaChess::ChessEngine;
 }
 
 void Dialog::initDialog() {
@@ -139,11 +139,9 @@ void Dialog::initChess() {
       this->setMoving(false);
     }
   });
-  // 初始化引擎
-  init();
 }
 
-Dialog::~Dialog() { delete ui; }
+Dialog::~Dialog() { delete ui; delete this->m_chessEngine; }
 //重写关闭事件实现窗口关闭动画
 void Dialog::closeEvent(QCloseEvent *event) {
   if (this->mCloseCheck == false) {
@@ -263,7 +261,9 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
         destRow = 9 - destRow;
         destCol = 8 - destCol;
       }
-      if (not this->canMove(mapTo256({nowRow, nowCol, destRow, destCol}))) {
+      PikaChess::Move move;
+      move.setMove(nowRow * 9 + nowCol, destRow * 9 + destCol);
+      if (not this->canMove(move)) {
         event->ignore();
         return true;
       }
@@ -296,7 +296,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
       mChessEatAni->start();
     } else {
       //在选棋时不是自己方的不让选
-      if (mTarget->text() == (COMPUTER_SIDE ? "r" : "b")) {
+      if (mTarget->text() == (this->m_chessEngine->side() ? "b" : "r")) {
         mSelected = mTarget;
         mSelected->raise();
         if (ui->Mask1->isVisible()) {
@@ -339,7 +339,9 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
       destRow = 9 - destRow;
       destCol = 8 - destCol;
     }
-    if (not this->canMove(mapTo256({nowRow, nowCol, destRow, destCol}))) {
+    PikaChess::Move move;
+    move.setMove(nowRow * 9 + nowCol, destRow * 9 + destCol);
+    if (not this->canMove(move)) {
       event->ignore();
       return true;
     }
@@ -421,9 +423,9 @@ void Dialog::on_MinButton_clicked() { this->showMinimized(); }
 //选择红黑槽
 void Dialog::on_PlayerSide_currentIndexChanged(int index) {
   ui->PlayerSide->setDisabled(true);
-  COMPUTER_SIDE = index ? RED : BLACK;
-  //电脑红子
-  if (COMPUTER_SIDE == RED) {
+  this->m_chessEngine->setSide(index ? PikaChess::RED : PikaChess::BLACK);
+  // 电脑黑子
+  if (this->m_chessEngine->computerSide() == PikaChess::BLACK) {
     //如果棋盘没翻转，那么翻转一下
     if (!this->mIsFliped) {
       on_Flip_clicked();
@@ -441,13 +443,13 @@ void Dialog::on_ComputerHard_currentIndexChanged(int index) {
   // 电脑每一步至少搜索多长时间（单位：毫秒）
   switch (index) {
   case 0:
-    SEARCH_TIME = 1500;
+    this->m_chessEngine->setSearchTime(1500);
     break;
   case 1:
-    SEARCH_TIME = 3000;
+    this->m_chessEngine->setSearchTime(3000);
     break;
   default:
-    SEARCH_TIME = 6000;
+    this->m_chessEngine->setSearchTime(6000);
   }
 }
 
@@ -527,7 +529,7 @@ void Dialog::on_Reset_clicked() {
   // 重置不需要锁难度
   ui->HardSelectionBox->setDisabled(false);
   // 重置局面信息
-  ::init();
+  this->m_chessEngine->reset();
   // 重置电脑胜利标志
   this->mComputerWin = false;
   // 重启边选择器
@@ -634,6 +636,7 @@ void Dialog::makeMove(Step step) {
 }
 
 void Dialog::computerMove() {
+  using namespace PikaChess;
   QFuture future{QtConcurrent::run([&] {
     // 先搜索云开局库
     const auto &[bookOK, step] = this->searchBook();
@@ -642,18 +645,22 @@ void Dialog::computerMove() {
       ui->ComputerScore->setStyleSheet("font:40px;color:green;");
       ui->ComputerScore->setText(bookOK);
       // 先尝试走一步
-      POSITION_INFO.makeMove(mapTo256(step), COMPUTER_SIDE);
+      const auto &[fromRow, fromCol, toRow, toCol] = step;
+      Move move;
+      move.setMove(fromRow * 9 + fromCol, toRow * 9 + toCol);
+      this->m_chessEngine->makeMove(move);
       // 如果走云端走法会产生重复局面，只有对方长将军才采纳云端走法
-      RepeatFlag repeatFlag { POSITION_INFO.getRepeatFlag() };
-      if (repeatFlag == 0 or POSITION_INFO.scoreRepeatFlag(repeatFlag) == BAN_SCORE_MATE) {
+      auto repeatScore { this->m_chessEngine->getRepeatScore() };
+      if (not repeatScore.has_value() or repeatScore.value() == BAN_SCORE_MATE) {
         emit threadOK(step);
         return;
       }
       // 该步会导致自己长将军，不能走，撤回
-      POSITION_INFO.unMakeMove(mapTo256(step), COMPUTER_SIDE);
+      this->m_chessEngine->unMakeMove();
     }
     // 云开局库无对应走法或者开局库走法导致我方长将军，由引擎出步
-    Score score = searchMain();
+    this->m_chessEngine->search();
+    qint16 score { this->m_chessEngine->bestScore() };
     // 显示MetaInfo
     ui->ComputerScoreBox->setTitle("电脑局面分");
     // 根据情况设置字体颜色
@@ -690,10 +697,12 @@ void Dialog::computerMove() {
       ui->ComputerScoreBox->setTitle("局面状态");
       ui->ComputerScore->setText("长将局面");
     } else {
-      ui->ComputerScore->setText("[" + QString::number(CURRENT_DEPTH) + "层]" +
-                                 QString::number(score));
+      ui->ComputerScore->setText("[" + QString::number(this->m_chessEngine->currentDepth())
+                                 + "层]" + QString::number(score));
     }
-    emit threadOK(mapToStep(POSITION_INFO.mBestMove));
+    Move bestMove { this->m_chessEngine->bestMove() };
+    emit threadOK(std::make_tuple(bestMove.from() / 9, bestMove.from() % 9,
+                                  bestMove.to() / 9, bestMove.to() % 9));
   })};
 }
 
@@ -716,37 +725,20 @@ inline bool Dialog::isChess(const QObject *object) {
          object == ui->BlackChe1 or object == ui->BlackChe2;
 }
 
-inline bool Dialog::canMove(const Move move) {
-  bool canMove{false};
-  // 如果不是合法的步，就不给走
-  if (POSITION_INFO.isLegalMove(move, getOppSide(COMPUTER_SIDE))) {
-    // 试着走一下，看是否被将军
-    canMove = POSITION_INFO.makeMove(move, getOppSide(COMPUTER_SIDE));
-    if (canMove) {
-      // 如果能走就还原，不能走的话已经在makeMove函数里面还原了，没必要再还原
-      POSITION_INFO.unMakeMove(move, getOppSide(COMPUTER_SIDE));
-    }
-  }
-  return canMove;
+inline bool Dialog::canMove(PikaChess::Move move) {
+  bool ret { this->m_chessEngine->makeMove(move) };
+  if (ret) this->m_chessEngine->unMakeMove();
+  return ret;
 }
 
 inline void Dialog::playerMakeMove(const Step &step) {
   auto &[nowRow, nowCol, destRow, destCol] = step;
-  POSITION_INFO.makeMove(this->mapTo256(step), getOppSide(COMPUTER_SIDE));
+  PikaChess::Move move;
+  move.setMove(nowRow * 9 + nowCol, destRow * 9 + destCol);
+  this->m_chessEngine->makeMove(move);
   // 标签也要跟着走
   this->mLabelPointers[destRow][destCol] = this->mLabelPointers[nowRow][nowCol];
   this->mLabelPointers[nowRow][nowCol] = nullptr;
-}
-
-inline Move Dialog::mapTo256(const Step &step) {
-  const auto &[fromX, fromY, toX, toY] = step;
-  // 算出具体的位置
-  return toMove(51 + fromX * 16 + fromY, 51 + toX * 16 + toY);
-}
-
-inline Step Dialog::mapToStep(const Move move) {
-  return {getSrc(move) / 16 - 3, getSrc(move) % 16 - 3, getDest(move) / 16 - 3,
-          getDest(move) % 16 - 3};
 }
 
 inline void Dialog::setButtonDisabled(const bool disabled) {
@@ -769,12 +761,12 @@ inline void Dialog::setMoving(const bool isMoving) {
 }
 
 // 查找云开局库
-inline tuple<QString, Step> Dialog::searchBook() {
+inline std::tuple<QString, Step> Dialog::searchBook() {
   QNetworkAccessManager cloudBook;
   // 搜索开局库
   QNetworkReply *cloudReply = cloudBook.get(
       QNetworkRequest{"http://www.chessdb.cn/chessdb.php?action=queryall&board=" +
-                      QString::fromStdString(POSITION_INFO.fenGen())}
+                      this->m_chessEngine->fen()}
   );
   // 等待请求完成
   QEventLoop event;
