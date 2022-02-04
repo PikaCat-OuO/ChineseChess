@@ -2,6 +2,7 @@
 #include "killertable.h"
 #include "hashtable.h"
 #include "searchmachine.h"
+#include "searchcapturemachine.h"
 #include "searchquiescencemachine.h"
 
 namespace PikaChess {

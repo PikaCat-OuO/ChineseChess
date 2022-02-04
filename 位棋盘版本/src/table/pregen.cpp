@@ -34,7 +34,7 @@ PreGen::PreGen() {
   genAttackByRedPawn();
   genAttackByBlackPawn();
 
-  // 生成Zobrist值;
+     // 生成Zobrist值;
   genZobristValues();
 }
 

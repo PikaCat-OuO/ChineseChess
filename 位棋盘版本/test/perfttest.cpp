@@ -86,4 +86,4 @@ void PerftTest::perft(quint8 depth) {
 }
 }
 
-//QTEST_MAIN(PikaChess::PerftTest)
+QTEST_MAIN(PikaChess::PerftTest)

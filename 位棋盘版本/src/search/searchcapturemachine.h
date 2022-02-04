@@ -2,13 +2,13 @@
 #include "chessboard.h"
 
 namespace PikaChess {
-class SearchQuiescenceMachine final {
+class SearchCaptureMachine final {
 public:
   /**
-   * @brief 静态搜索状态机的构造函数
+   * @brief 吃子搜索状态机的构造函数
    * @param chessboard 当前的棋盘
    */
-  SearchQuiescenceMachine(const Chessboard &chessboard);
+  SearchCaptureMachine(const Chessboard &chessboard);
 
   /** 返回下一个走法 */
   Move getNextMove();
@@ -24,7 +24,7 @@ private:
   quint8 m_nowMove { 0 };
   /** 总共有几个走法 */
   quint8 m_totalMoves;
-  /** 所有的走法 */
-  ValuedMove m_moveList[111];
+  /** 所有的吃子走法 */
+  ValuedCapMove m_moveList[59];
 };
 }

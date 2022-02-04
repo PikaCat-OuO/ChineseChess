@@ -26,6 +26,7 @@ void Chessboard::parseFen(const QString &fen) {
   this->m_redOccupancy.clearAllBits();
   this->m_blackOccupancy.clearAllBits();
   this->m_occupancy.clearAllBits();
+  memset(this->m_helperBoard, EMPTY, sizeof(this->m_helperBoard));
 
   // 分数归0
   this->m_redScore = this->m_blackScore = 0;
@@ -35,13 +36,15 @@ void Chessboard::parseFen(const QString &fen) {
 
   // 当前位置的计数器
   quint8 count { 0 };
-  // 遍历整个棋盘fen，将对应的内容填入位棋盘中
+  // 遍历整个棋盘fen，将对应的内容填入位棋盘和辅助棋盘中
   foreach (const auto &ch, fenList[0]) {
     switch (ch.toLatin1()) {
     case '/': continue;
     default:
       if (ch.isNumber()) { count += (ch.toLatin1() - '0'); continue; }
-      this->m_bitboards[FEN_MAP[ch]].setBit(count); break;
+      this->m_bitboards[FEN_MAP[ch]].setBit(count);
+      this->m_helperBoard[count] = FEN_MAP[ch];
+      break;
     }
     if (ch.isLower()) {
       this->m_blackScore += VALUE[FEN_MAP[ch]][count];
@@ -68,16 +71,13 @@ QString Chessboard::getFen() const {
 
   // 空位置计数器
   quint8 count { 0 };
-  // 遍历位棋盘，取出棋子放入fen中
+  // 遍历辅助棋盘，取出棋子放入fen中
   for (quint8 rank { 0 }; rank < 10; ++rank) {
     for (quint8 file { 0 }; file < 9; ++file){
       quint8 index = rank * 9 + file;
-      if (this->m_occupancy[index]) {
+      if (this->m_helperBoard[index] not_eq EMPTY) {
         if (count) { fen += QString::number(count); count = 0; }
-        auto chess { std::find_if(std::begin(this->m_bitboards), std::end(this->m_bitboards),
-                                [&] (const Bitboard &bitboard) { return bitboard[index]; }) };
-        std::ptrdiff_t chessType { chess - this->m_bitboards };
-        fen += FEN_REVERSE_MAP[chessType];
+        fen += FEN_REVERSE_MAP[this->m_helperBoard[index]];
       } else ++count;
     }
 
@@ -95,9 +95,11 @@ QString Chessboard::getFen() const {
   return fen;
 }
 
-quint8 Chessboard::genCapMoves(ValuedMove *moveList) const {
-  // 获取对方的选边
-  quint8 oppSide = this->m_side ^ OPP_SIDE;
+template <typename MoveType>
+requires std::is_same_v<ValuedMove, MoveType> or std::is_same_v<ValuedCapMove, MoveType>
+quint8 Chessboard::genCapMoves(MoveType *moveList) const {
+  // 可用的位置
+  Bitboard available { this->m_side == RED ? this->m_blackOccupancy : this->m_redOccupancy };
 
   // 生成的走法数
   quint8 total { 0 };
@@ -113,29 +115,29 @@ quint8 Chessboard::genCapMoves(ValuedMove *moveList) const {
       bitboard.clearBit(index);
 
       // 获取这个位可以攻击到的位置
-      Bitboard attack { PRE_GEN.getAttack(chess, index, this->m_occupancy) };
+      Bitboard attack { PRE_GEN.getAttack(chess, index, this->m_occupancy) & available };
 
-      // 寻找被攻击的对象
-      for (quint8 victim = ROOK + oppSide; victim < KING + oppSide; ++victim) {
-        Bitboard victims { attack & this->m_bitboards[victim] };
-        // 遍历可以攻击的位置，生成对应的走法
-        quint8 victimIndex;
-        while ((victimIndex = victims.getLastBitIndex()) < 90) {
-          victims.clearBit(victimIndex);
-          ValuedMove &move { moveList[total++] };
-          move.setMove(chess, victim, index, victimIndex);
-          // 计算棋子的MVVLVA
-          qint64 score { MVVLVA[victim] };
-          // 如果棋子被保护了还要减去攻击者的分值
-          if (isProtected(move.to())) score -= MVVLVA[chess];
-          move.setScore(score);
-        }
+      // 遍历可以攻击的位置，生成对应的走法
+      quint8 victimIndex;
+      while ((victimIndex = attack.getLastBitIndex()) < 90) {
+        attack.clearBit(victimIndex);
+
+        MoveType &move { moveList[total++] };
+        move.setMove(chess, this->m_helperBoard[victimIndex], index, victimIndex);
+        // 计算棋子的MVVLVA
+        qint8 score { MVVLVA[this->m_helperBoard[victimIndex]] };
+        // 如果棋子被保护了还要减去攻击者的分值
+        if (isProtected(move.to())) score -= MVVLVA[chess];
+        move.setScore(score);
       }
     }
   }
 
   return total;
 }
+
+template quint8 Chessboard::genCapMoves(ValuedMove *moveList) const;
+template quint8 Chessboard::genCapMoves(ValuedCapMove *moveList) const;
 
 quint8 Chessboard::genNonCapMoves(ValuedMove *moveList) const {
   // 可用的位置
@@ -334,6 +336,10 @@ bool Chessboard::makeMove(Move &move) {
   // 检查走完之后是否被将军了，如果被将军了就撤销这一步
   if (isChecked()) { undoMove(move); return false; }
 
+  // 走动辅助棋盘
+  this->m_helperBoard[move.from()] = EMPTY;
+  this->m_helperBoard[move.to()] = move.chess();
+
   // 在历史走法表中记录这一个走法
   HistoryMove &historyMove { this->m_historyMoves[this->m_historyMovesCount++] };
 
@@ -384,6 +390,10 @@ void Chessboard::unMakeMove() {
 
   // 从历史走法表中取出最后一个走法
   const HistoryMove &move { this->m_historyMoves[--this->m_historyMovesCount] };
+
+  // 还原辅助棋盘
+  this->m_helperBoard[move.to()] = move.victim();
+  this->m_helperBoard[move.from()] = move.chess();
 
   // 还原原来的Zobrist值
   this->m_zobrist = move.zobrist();

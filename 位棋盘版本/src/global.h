@@ -38,9 +38,9 @@ constexpr quint8 PHASE_NOT_CAPTURE_GEN { 5 };
 constexpr quint8 PHASE_REST { 6 };
 
 /** MVV/LVA Most Valuable Victim Least Valuable Attacker
- *  每种子力的价值，车马炮象兵士将 */
-constexpr qint16 MVVLVA[14] { 500, 200, 200, 20, 50, 20, 1000,
-                            500, 200, 200, 20, 50, 20, 1000 };
+ *  每种子力的MVVLVA价值，车马炮象兵士将 */
+constexpr qint8 MVVLVA[14] { 50, 20, 20, 2, 5, 2, 100,
+                            50, 20, 20, 2, 5, 2, 100 };
 
 /** 置换表的大小 */
 constexpr quint32 HASH_SIZE { 1 << 20 };

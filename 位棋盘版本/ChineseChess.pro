@@ -23,7 +23,9 @@ HEADERS += \
     src/global.h \
     src/move/historymove.h \
     src/move/move.h \
+    src/move/valuedcapmove.h \
     src/move/valuedmove.h \
+    src/search/searchcapturemachine.h \
     src/search/searchinstance.h \
     src/search/searchmachine.h \
     src/search/searchquiescencemachine.h \
@@ -41,7 +43,9 @@ SOURCES += \
     src/main.cpp \
     src/move/historymove.cpp \
     src/move/move.cpp \
+    src/move/valuedcapmove.cpp \
     src/move/valuedmove.cpp \
+    src/search/searchcapturemachine.cpp \
     src/search/searchinstance.cpp \
     src/search/searchmachine.cpp \
     src/search/searchquiescencemachine.cpp \

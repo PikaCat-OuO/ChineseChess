@@ -1,7 +1,5 @@
 #include "searchinstance.h"
 
-extern clock_t TIME;
-
 namespace PikaChess {
 SearchInstance::SearchInstance(const Chessboard &chessboard, HashTable &hashTable)
     : m_chessboard { chessboard }, m_hashTable { hashTable } { }
@@ -143,7 +141,7 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   // 搜索有限状态机
   SearchMachine search { this->m_chessboard, move,
                        this->m_killerTable.getKiller(this->m_distance, 0),
-                       this->m_killerTable.getKiller(this->m_distance, 1)};
+                       this->m_killerTable.getKiller(this->m_distance, 1) };
 
   // 最佳走法的标志
   quint8 bestMoveHashFlag { HASH_ALPHA };
@@ -224,11 +222,37 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
 
   qint16 bestScore { LOSS_SCORE };
 
-  // 静态搜索的有限状态机
-  SearchQuiescenceMachine search { this->m_chessboard };
-
   // 如果被将军了，生成所有着法
-  if (this->m_chessboard.getLastMove().isChecked()) search.setGenAll();
+  if (this->m_chessboard.getLastMove().isChecked()) {
+    // 静态搜索有限状态机
+    SearchQuiescenceMachine search { this->m_chessboard };
+    // 遍历所有走法
+    Move move;
+    while ((move = search.getNextMove()).isVaild()) {
+      // 如果被将军了就不搜索这一步
+      if (makeMove(move)) {
+        // 不然就获得评分并更新最好的分数
+        qint16 tryScore = -searchQuiescence(-beta, -alpha);
+        // 撤销走棋
+        unMakeMove();
+        if (tryScore > bestScore) {
+          // 找到最佳走法(但不能确定是Alpha、PV还是Beta走法)
+          bestScore = tryScore;
+          // 找到一个Beta走法
+          if (tryScore >= beta) {
+            // Beta截断
+            return tryScore;
+          }
+          // 找到一个PV走法
+          if (tryScore > alpha) {
+            // 缩小Alpha-Beta边界
+            alpha = tryScore;
+          }
+        }
+      }
+    }
+  }
+
   // 如果不被将军，先做局面评价，如果局面评价没有截断，再生成吃子走法
   else {
     qint16 tryScore = this->m_chessboard.score();
@@ -243,29 +267,31 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
         alpha = tryScore;
       }
     }
-  }
 
-  // 遍历所有走法
-  Move move;
-  while ((move = search.getNextMove()).isVaild()) {
-    // 如果被将军了就不搜索这一步
-    if (makeMove(move)) {
-      // 不然就获得评分并更新最好的分数
-      qint16 tryScore = -searchQuiescence(-beta, -alpha);
-      // 撤销走棋
-      unMakeMove();
-      if (tryScore > bestScore) {
-        // 找到最佳走法(但不能确定是Alpha、PV还是Beta走法)
-        bestScore = tryScore;
-        // 找到一个Beta走法
-        if (tryScore >= beta) {
-          // Beta截断
-          return tryScore;
-        }
-        // 找到一个PV走法
-        if (tryScore > alpha) {
-          // 缩小Alpha-Beta边界
-          alpha = tryScore;
+    // 吃子搜索的有限状态机
+    SearchCaptureMachine search { this->m_chessboard };
+    // 遍历所有走法
+    Move move;
+    while ((move = search.getNextMove()).isVaild()) {
+      // 如果被将军了就不搜索这一步
+      if (makeMove(move)) {
+        // 不然就获得评分并更新最好的分数
+        qint16 tryScore = -searchQuiescence(-beta, -alpha);
+        // 撤销走棋
+        unMakeMove();
+        if (tryScore > bestScore) {
+          // 找到最佳走法(但不能确定是Alpha、PV还是Beta走法)
+          bestScore = tryScore;
+          // 找到一个Beta走法
+          if (tryScore >= beta) {
+            // Beta截断
+            return tryScore;
+          }
+          // 找到一个PV走法
+          if (tryScore > alpha) {
+            // 缩小Alpha-Beta边界
+            alpha = tryScore;
+          }
         }
       }
     }
