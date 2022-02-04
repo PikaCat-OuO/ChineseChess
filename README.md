@@ -11,6 +11,17 @@
 支持主要变例搜索、使用OpenMP与QtConcurrent并发库进行Lazy-SMP多线程搜索\
 联网的情况下支持ChessDB提供的开局库、对局库和残局库，大约可提升引擎200ELO左右
 
+#### 软件架构
+Qt、C++
+
+#### 开发环境
+集成开发环境: Qt 6.2.3\
+编译器: MinGW 11.2.0
+
+#### 语言标准
+C++23 with gnu extension\
+编译时开启 **-std=gnu++2b** 
+
 #### 引擎棋力（在联网情况、四核机器下，使用简单难度）
 足以应对一般的纯人，但由于搜索速度和评分函数知识上的缺陷，暂不足以应对任何其他象棋软件(免费与商业)。
 
@@ -27,15 +38,6 @@
 该账号仅用于测试软件棋力，由于特大等级的小部分人和荣誉顶级的绝大部分人都是软件，由于本软件不具备与其他软件对撕的能力，鉴于已经达到了测试的目的，故不再往后测试
 ![评测最高等级](https://images.gitee.com/uploads/images/2021/0921/212032_434c1039_7628839.jpeg "Screenshot_2021-09-21-21-16-53-960_cn.jj.chess.mi.jpg")
 
-#### 软件架构
-Qt、C++
-
-#### 开发环境
-Qt 6.2.3 + mingw 11.2.0 x64 with posix thread model
-
-#### 语言标准
-C++23 编译时开启 **-std=gnu++2b** 
-
 #### 使用说明
 打开可执行即可运行程序
 
@@ -46,10 +48,10 @@ PikaCat
 https://www.chessdb.cn/query/
 
 #### 参考文献
-象棋百科全书：https://www.xqbase.com/computer.htm\
+象棋百科全书：https://www.xqbase.com/computer.htm \
 象棋编程维基百科: https://www.chessprogramming.org/Main_Page
 
 #### 参考代码
-象棋小巫师: https://gitee.com/SpiritFinches/xqwizard/tree/master/XQWLIGHT/Win32\
-象眼: https://gitee.com/SpiritFinches/xqwizard/tree/master/ELEEYE\
+象棋小巫师: https://gitee.com/SpiritFinches/xqwizard/tree/master/XQWLIGHT/Win32 \
+象眼: https://gitee.com/SpiritFinches/xqwizard/tree/master/ELEEYE \
 国际象棋位棋盘: https://github.com/maksimKorzh/bbc
