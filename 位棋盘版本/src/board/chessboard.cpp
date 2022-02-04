@@ -330,9 +330,6 @@ bool Chessboard::makeMove(Move &move) {
   // 记录现在的Zobrist值
   historyMove.setZobrist(this->m_zobrist);
 
-  // 记录得分
-  historyMove.setScore(this->m_redScore, this->m_blackScore);
-
   // 计算新的Zobrist值
   this->m_zobrist ^= PRE_GEN.getSideZobrist();
   this->m_zobrist ^= PRE_GEN.getZobrist(move.chess(), move.from());
@@ -380,8 +377,15 @@ void Chessboard::unMakeMove() {
   this->m_zobrist = move.zobrist();
 
   // 还原原来的得分
-  this->m_redScore = move.redScore();
-  this->m_blackScore = move.blackScore();
+  if (RED == this->m_side) {
+    this->m_redScore -= VALUE[move.chess()][move.to()];
+    this->m_redScore += VALUE[move.chess()][move.from()];
+    if (move.isCapture()) this->m_blackScore += VALUE[move.victim()][move.to()];
+  } else {
+    this->m_blackScore -= VALUE[move.chess()][move.to()];
+    this->m_blackScore += VALUE[move.chess()][move.from()];
+    if (move.isCapture()) this->m_redScore += VALUE[move.victim()][move.to()];
+  }
 
   // 撤销这个走法
   undoMove(move);

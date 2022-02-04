@@ -1,14 +1,11 @@
 #pragma once
 #include "move.h"
+#include "bitboard.h"
 
 namespace PikaChess {
 class HistoryMove : public Move{
 public:
   quint64 zobrist() const;
-
-  quint16 redScore() const;
-
-  quint16 blackScore() const;
 
   /**
    * @brief 该步是否为空步
@@ -42,17 +39,9 @@ public:
   /** 设置一个走法 */
   void setMove(const Move &move);
 
-  void setScore(quint16 redScore, quint16 blackScore);
-
 private:
   /** 走该步之前的Zobrist值 */
   quint64 m_zobrist;
-
-  /** 走该步之前红方的得分 */
-  quint16 m_redScore;
-
-  /** 走该步之前黑方的得分 */
-  quint16 m_blackScore;
 
   /** 该步是否为将军步 */
   bool m_isChecked { false };
