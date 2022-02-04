@@ -5,7 +5,6 @@
         <file>Images/close.ico</file>
         <file>Images/close_press.ico</file>
         <file>Images/min.ico</file>
-        <file>ChessIcon.ico</file>
         <file>ChessImage/BOARD.BMP</file>
         <file>ChessImage/ba.ico</file>
         <file>ChessImage/bb.ico</file>
@@ -23,5 +22,6 @@
         <file>ChessImage/rr.ico</file>
         <file>ChessImage/mask2.png</file>
         <file>ChessImage/mask.png</file>
+        <file>ChessImage/ChessIcon.ico</file>
     </qresource>
 </RCC>
