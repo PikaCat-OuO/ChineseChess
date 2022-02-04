@@ -125,7 +125,7 @@ quint8 Chessboard::genCapMoves(MoveType *moveList) const {
         MoveType &move { moveList[total++] };
         move.setMove(chess, this->m_helperBoard[victimIndex], index, victimIndex);
         // 计算棋子的MVVLVA
-        qint8 score { MVVLVA[this->m_helperBoard[victimIndex]] };
+        qint8 score { MVVLVA[move.victim()] };
         // 如果棋子被保护了还要减去攻击者的分值
         if (isProtected(move.to())) score -= MVVLVA[chess];
         move.setScore(score);
@@ -223,37 +223,15 @@ bool Chessboard::isLegalMove(Move &move) const {
                                 this->m_redOccupancy : this->m_blackOccupancy };
   if (not occupancy[move.from()] or occupancy[move.to()]) return false;
 
-  // 在符合的情况下首先在棋盘上找到自己的棋子
-  for (quint8 chess = ROOK + this->m_side; chess <= KING + this->m_side; ++chess) {
-    if (this->m_bitboards[chess][move.from()]) {
-      // 紧接着检查该走法是否符合相关棋子的步法
-      move.setChess(chess);
-      if (not PRE_GEN.getAttack(chess, move.from(), this->m_occupancy)[move.to()]) {
-        return false;
-      }
-
-      // 然后再检查是否吃子了，如果吃子了就找到对应的被吃掉的棋子
-      const Bitboard &occupancy { RED == this->m_side ?
-                                    this->m_blackOccupancy : this->m_redOccupancy };
-      if (occupancy[move.to()]) {
-        quint8 oppSide = this->m_side ^ OPP_SIDE;
-
-        for (quint8 victim = ROOK + oppSide; victim < KING + oppSide; ++victim) {
-          if (this->m_bitboards[victim][move.to()]) {
-            move.setVictim(victim);
-            return true;
-          }
-        }
-      }
-      // 如果没吃子就恢复原样
-      else move.setVictim(EMPTY);
-
-      return true;
-    }
+  // 在符合的情况下首先检查该走法是否符合相关棋子的步法
+  move.setChess(this->m_helperBoard[move.from()]);
+  if (PRE_GEN.getAttack(move.chess(), move.from(), this->m_occupancy)[move.to()]) {
+    // 修正吃子情况
+    move.setVictim(this->m_helperBoard[move.to()]);
+    return true;
   }
 
-  // 不可能执行到这里，但是不写编译器有警告
-  return true;
+  return false;
 }
 
 bool Chessboard::isNotEndgame() const {
@@ -352,6 +330,9 @@ bool Chessboard::makeMove(Move &move) {
   // 记录现在的Zobrist值
   historyMove.setZobrist(this->m_zobrist);
 
+  // 记录得分
+  historyMove.setScore(this->m_redScore, this->m_blackScore);
+
   // 计算新的Zobrist值
   this->m_zobrist ^= PRE_GEN.getSideZobrist();
   this->m_zobrist ^= PRE_GEN.getZobrist(move.chess(), move.from());
@@ -399,15 +380,8 @@ void Chessboard::unMakeMove() {
   this->m_zobrist = move.zobrist();
 
   // 还原原来的得分
-  if (RED == this->m_side) {
-    this->m_redScore -= VALUE[move.chess()][move.to()];
-    this->m_redScore += VALUE[move.chess()][move.from()];
-    if (move.isCapture()) this->m_blackScore += VALUE[move.victim()][move.to()];
-  } else {
-    this->m_blackScore -= VALUE[move.chess()][move.to()];
-    this->m_blackScore += VALUE[move.chess()][move.from()];
-    if (move.isCapture()) this->m_redScore += VALUE[move.victim()][move.to()];
-  }
+  this->m_redScore = move.redScore();
+  this->m_blackScore = move.blackScore();
 
   // 撤销这个走法
   undoMove(move);

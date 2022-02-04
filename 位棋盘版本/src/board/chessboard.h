@@ -117,8 +117,8 @@ private:
   quint64 m_zobrist;
 
   /** 当前局面的红黑方得分 */
-  qint16 m_redScore;
-  qint16 m_blackScore;
+  quint16 m_redScore;
+  quint16 m_blackScore;
 
   /** 走棋的历史记录 */
   HistoryMove m_historyMoves[256];
