@@ -42,9 +42,14 @@ C++23 编译时开启 **-std=gnu++2b**
 #### 参与贡献
 PikaCat
 
-#### 代码参考
-象棋小巫师：https://www.xqbase.com/computer/stepbystep1.htm
+#### 云开局库、残局库
+https://www.chessdb.cn/query/
 
-云开局库、残局库：https://www.chessdb.cn/query/
+#### 参考文献
+象棋百科全书：https://www.xqbase.com/computer.htm\
+象棋编程维基百科: https://www.chessprogramming.org/Main_Page
 
-想要做出更好的引擎，请参考：https://github.com/xqbase/eleeye/tree/master/eleeye
+#### 参考代码
+象棋小巫师: https://gitee.com/SpiritFinches/xqwizard/tree/master/XQWLIGHT/Win32\
+象眼: https://gitee.com/SpiritFinches/xqwizard/tree/master/ELEEYE\
+国际象棋位棋盘: https://github.com/maksimKorzh/bbc
