@@ -8,9 +8,6 @@ class Bitboard final {
 public:
   friend class PreGen;
 
-  /** 位棋盘掩码初始化函数，不要调用 */
-  Bitboard(const QString &initCode);
-
   /** 默认构造函数，位棋盘全部置0 */
   Bitboard();
 

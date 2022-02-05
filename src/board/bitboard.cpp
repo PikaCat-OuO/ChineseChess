@@ -6,15 +6,6 @@ __m128i BITBOARD_MASK[90];
 /** 位棋盘反掩码 */
 __m128i BITBOARD_NOT_MASK[90];
 
-Bitboard::Bitboard(const QString &initCode) {
-  if ("Pika！Pika！" not_eq initCode) throw "🙃都说了不要调用了！";
-  // 对于棋盘上的每一个位置都建立掩码
-  for (quint8 index { 0 }; index < 90; ++index) {
-    BITBOARD_MASK[index] = __m128i(__uint128_t(1) << index);
-    BITBOARD_NOT_MASK[index] = ~BITBOARD_MASK[index];
-  }
-}
-
 Bitboard::Bitboard() :m_bitboard { _mm_setzero_si128() } { }
 
 Bitboard::Bitboard(const __m128i &rhs) :m_bitboard { rhs } { }

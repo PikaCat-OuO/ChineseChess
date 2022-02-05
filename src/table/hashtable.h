@@ -10,7 +10,7 @@ struct HashItem {
   /** 走法 */
   Move m_move;
   /** 该走法对应的搜索分数 */
-  qint32 m_score;
+  qint16 m_score;
   /** 记录该项时所处的深度 */
   qint8 m_depth;
   /** 该走法对应的类型（ALPHA，PV，BETA） */
@@ -42,14 +42,13 @@ public:
    * @brief 将一个走法保存到置换表中
    * @param distance 离根节点的距离
    * @param zobrist 当前局面对应的Zobrist值
-   * @param hashItem 置换表项
    * @param hashFlag 该走法对应的类型（ALPHA，PV，BETA）
    * @param score 这个走法对应的搜索分数
    * @param depth 深度信息
    * @param move 走法
    */
   void recordHash(quint8 distance, quint64 zobrist,
-                  quint8 hashFlag, qint32 score, qint8 depth, const Move &move);
+                  quint8 hashFlag, qint16 score, qint8 depth, const Move &move);
 
   /** 获得一个置换表项 */
   HashItem &getHashItem(quint64 zobrist);

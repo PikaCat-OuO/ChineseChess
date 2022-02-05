@@ -3,9 +3,20 @@
 namespace PikaChess {
 PreGen PRE_GEN;
 
+/** 位棋盘掩码 */
+extern __m128i BITBOARD_MASK[90];
+/** 位棋盘反掩码 */
+extern __m128i BITBOARD_NOT_MASK[90];
+
 PreGen::PreGen() {
   // 位棋盘掩码初始化
-  Bitboard initBitboard { "Pika！Pika！" };
+  for (quint8 index { 0 }; index < 90; ++index) {
+    BITBOARD_MASK[index] = __m128i(__uint128_t(1) << index);
+    BITBOARD_NOT_MASK[index] = ~BITBOARD_MASK[index];
+  }
+
+  // 默认走法初始化
+  INVALID_MOVE.setMove(EMPTY, EMPTY, 0, 0);
 
   // 生成占用位
   genRookOccupancy();
@@ -34,7 +45,7 @@ PreGen::PreGen() {
   genAttackByRedPawn();
   genAttackByBlackPawn();
 
-     // 生成Zobrist值;
+  // 生成Zobrist值;
   genZobristValues();
 }
 

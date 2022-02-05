@@ -51,7 +51,7 @@ protected:
   /** 哪一个棋子 */
   quint8 m_chess;
   /** 吃掉了什么棋子 */
-  quint8 m_victim { EMPTY };
+  quint8 m_victim;
 
   union {
     struct {
@@ -60,7 +60,7 @@ protected:
       /** 到哪里去 */
       quint8 m_to;
     };
-    quint16 m_fromTo { 0 };
+    quint16 m_fromTo;
   };
 };
 /** 默认的无效走法 */

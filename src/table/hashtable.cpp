@@ -11,9 +11,9 @@ qint16 HashTable::probeHash(quint8 distance, quint64 zobrist,
   // 杀棋的标志，如果杀棋了就不用满足深度条件
   bool isMate { false };
 
-  // 提取置换表项，上锁
+  // 提取置换表项
   HashItem &hashItemRef = this->m_hashTable[zobrist & HASH_MASK];
-  // 上锁并复制置换表项，注意到这里不直接使用上面的引用，因为下面要对分数进行修改
+  // 上锁并复制置换表项
   hashItemRef.m_hashItemLock.lockForRead();
   HashItem hashItem = hashItemRef;
   hashItemRef.m_hashItemLock.unlock();
@@ -80,7 +80,7 @@ qint16 HashTable::probeHash(quint8 distance, quint64 zobrist,
 }
 
 void HashTable::recordHash(quint8 distance, quint64 zobrist,
-                           quint8 hashFlag, qint32 score, qint8 depth, const Move &move) {
+                           quint8 hashFlag, qint16 score, qint8 depth, const Move &move) {
   // 先上锁
   HashItem &hashItem { this->getHashItem(zobrist) };
   QWriteLocker writeLocker { &hashItem.m_hashItemLock };

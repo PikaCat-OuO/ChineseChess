@@ -1,5 +1,6 @@
 #pragma once
 #include "bitboard.h"
+#include "move.h"
 
 namespace PikaChess {
 class PreGen final {

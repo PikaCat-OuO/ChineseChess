@@ -1,7 +1,7 @@
 #include "move.h"
 
 namespace PikaChess {
-Move INVALID_MOVE { };
+Move INVALID_MOVE;
 
 quint8 Move::chess() const { return this->m_chess; }
 
