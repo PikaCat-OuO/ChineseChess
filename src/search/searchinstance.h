@@ -55,7 +55,7 @@ private:
   qint16 m_bestScore;
 
   /** 当前局面下最好的走法 */
-  Move m_bestMove;
+  Move m_bestMove { INVALID_MOVE };
 
   /** 每个搜索实例都有自己的棋盘 */
   Chessboard m_chessboard;

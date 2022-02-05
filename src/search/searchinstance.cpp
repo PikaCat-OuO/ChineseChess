@@ -8,7 +8,7 @@ void SearchInstance::searchRoot(const qint8 depth) {
   // 当前走法
   Move move;
   // 搜索有限状态机
-  SearchMachine search { this->m_chessboard, INVALID_MOVE,
+  SearchMachine search { this->m_chessboard, this->m_bestMove,
                        this->m_killerTable.getKiller(this->m_distance, 0),
                        this->m_killerTable.getKiller(this->m_distance, 1)};
 
