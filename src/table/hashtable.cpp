@@ -1,28 +1,22 @@
 #include "hashtable.h"
 
 namespace PikaChess {
-HashItem::HashItem(const HashItem &rhs)
-    : m_zobrist { rhs.m_zobrist }, m_move { rhs.m_move },
-      m_score { rhs.m_score }, m_depth { rhs.m_depth },
-      m_hashFlag { rhs.m_hashFlag } { }
+HashItem::HashItem(const volatile __m128i &data) : m_data { data } { }
 
 qint16 HashTable::probeHash(quint8 distance, quint64 zobrist,
                             qint16 alpha, qint16 beta, qint8 depth, Move &hashMove) {
-  // 杀棋的标志，如果杀棋了就不用满足深度条件
-  bool isMate { false };
-
   // 提取置换表项
-  HashItem &hashItemRef = this->m_hashTable[zobrist & HASH_MASK];
-  // 上锁并复制置换表项
-  hashItemRef.m_hashItemLock.lockForRead();
-  HashItem hashItem = hashItemRef;
-  hashItemRef.m_hashItemLock.unlock();
+  volatile __m128i data { this->m_hashTable[zobrist & HASH_MASK] };
+  HashItem hashItem { data };
 
   // 校验高位zobrist是否对应得上
   if (zobrist not_eq hashItem.m_zobrist) {
     hashMove = INVALID_MOVE;
     return LOSS_SCORE;
   }
+
+  // 杀棋的标志，如果杀棋了就不用满足深度条件
+  bool isMate { false };
 
   // 将走法保存下来
   hashMove = hashItem.m_move;
@@ -81,9 +75,9 @@ qint16 HashTable::probeHash(quint8 distance, quint64 zobrist,
 
 void HashTable::recordHash(quint8 distance, quint64 zobrist,
                            quint8 hashFlag, qint16 score, qint8 depth, const Move &move) {
-  // 先上锁
-  HashItem &hashItem { this->getHashItem(zobrist) };
-  QWriteLocker writeLocker { &hashItem.m_hashItemLock };
+  // 提取置换表项
+  volatile __m128i data { this->m_hashTable[zobrist & HASH_MASK] };
+  HashItem hashItem { data };
 
   // 查看置换表中的项是否比当前项更加准确
   if (hashItem.m_depth > depth) return;
@@ -109,19 +103,11 @@ void HashTable::recordHash(quint8 distance, quint64 zobrist,
 
   // 记录Zobrist
   hashItem.m_zobrist = zobrist;
+
+  // 写回置换表
+  data = hashItem.m_data;
+  this->m_hashTable[zobrist & HASH_MASK] = data;
 }
 
-HashItem &HashTable::getHashItem(quint64 zobrist) {
-  return this->m_hashTable[zobrist & HASH_MASK];
-}
-
-void HashTable::reset() {
-  for (auto &hashItem : this->m_hashTable) {
-    hashItem.m_hashFlag = HASH_ALPHA;
-    hashItem.m_depth = 0;
-    hashItem.m_move = INVALID_MOVE;
-    hashItem.m_score = 0;
-    hashItem.m_zobrist = 0;
-  }
-}
+void HashTable::reset() { memset(this->m_hashTable, 0, sizeof(this->m_hashTable)); }
 }

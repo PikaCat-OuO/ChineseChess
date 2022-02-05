@@ -67,12 +67,12 @@ void Bitboard::clearBit(quint8 index) { *this &= BITBOARD_NOT_MASK[index]; }
 
 void Bitboard::clearAllBits() { this->m_bitboard = _mm_setzero_si128(); }
 
-uint8_t Bitboard::getLastBitIndex() const {
+quint8 Bitboard::getLastBitIndex() const {
   if (this->m_bitboard[0]) return __tzcnt_u64(this->m_bitboard[0]);
   else return 64 + __tzcnt_u64(this->m_bitboard[1]);
 }
 
-uint8_t Bitboard::countBits() const {
+quint8 Bitboard::countBits() const {
   return _mm_popcnt_u64(this->m_bitboard[0]) + _mm_popcnt_u64(this->m_bitboard[1]);
 }
 

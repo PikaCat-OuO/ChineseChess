@@ -54,9 +54,9 @@ public:
   /** 清除位棋盘上的所有位 */
   void clearAllBits();
   /** 获得最后一个1的下标 */
-  uint8_t getLastBitIndex() const;
+  quint8 getLastBitIndex() const;
   /** 数一下现在位棋盘上有多少个1 */
-  uint8_t countBits() const;
+  quint8 countBits() const;
 
   /** 打印位棋盘 */
   void print();

@@ -2,24 +2,25 @@
 #include "move.h"
 
 namespace PikaChess {
-struct HashItem {
-  /** 读写锁 */
-  QReadWriteLock m_hashItemLock;
-  /** 走该走法前对应的Zobrist，用于校验 */
-  quint64 m_zobrist;
-  /** 走法 */
-  Move m_move;
-  /** 该走法对应的搜索分数 */
-  qint16 m_score;
-  /** 记录该项时所处的深度 */
-  qint8 m_depth;
-  /** 该走法对应的类型（ALPHA，PV，BETA） */
-  quint8 m_hashFlag;
+union HashItem {
+  struct {
+    /** 走该走法前对应的Zobrist，用于校验 */
+    quint64 m_zobrist;
+    /** 走法 */
+    Move m_move;
+    /** 该走法对应的搜索分数 */
+    qint16 m_score;
+    /** 记录该项时所处的深度 */
+    qint8 m_depth;
+    /** 该走法对应的类型（ALPHA，PV，BETA） */
+    quint8 m_hashFlag;
+  };
+  __m128i m_data;
 
-  /** 默认构造 */
+  /** 构造函数 */
   HashItem() = default;
-  /** 复制构造，不用复制读写锁 */
-  HashItem(const HashItem& rhs);
+  /** 复制构造 */
+  HashItem(volatile const __m128i &data);
 };
 
 class HashTable {
@@ -50,13 +51,10 @@ public:
   void recordHash(quint8 distance, quint64 zobrist,
                   quint8 hashFlag, qint16 score, qint8 depth, const Move &move);
 
-  /** 获得一个置换表项 */
-  HashItem &getHashItem(quint64 zobrist);
-
   /** 重置置换表 */
   void reset();
 
 private:
-  HashItem m_hashTable[HASH_SIZE];
+  __m128i __attribute__((aligned (16))) m_hashTable[HASH_SIZE];
 };
 }

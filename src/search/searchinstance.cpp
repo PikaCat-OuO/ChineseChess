@@ -8,7 +8,7 @@ void SearchInstance::searchRoot(const qint8 depth) {
   // 当前走法
   Move move;
   // 搜索有限状态机
-  SearchMachine search { this->m_chessboard, INVALID_MOVE,
+  SearchMachine search { this->m_chessboard, this->m_bestMove,
                        this->m_killerTable.getKiller(this->m_distance, 0),
                        this->m_killerTable.getKiller(this->m_distance, 1)};
 
@@ -80,23 +80,6 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   // 置换表裁剪成功
   if (tryScore > LOSS_SCORE) return tryScore;
 
-  // 获得静态评分
-  qint16 staticEval { this->m_chessboard.score() };
-
-  // 不是PV节点
-  bool notPVNode { beta - alpha <= 1 };
-
-  bool notInCheck { not this->m_chessboard.getLastMove().isChecked() };
-
-  // 静态评分裁剪
-  if (depth < 3 and notPVNode and notInCheck and beta - 1 > BAN_SCORE_LOSS) {
-    // 裁剪的边界
-    int evalMargin = 40 * depth;
-
-    // 如果放弃一定的分值还是超出边界就返回
-    if (staticEval - evalMargin >= beta) return staticEval - evalMargin;
-  }
-
   /* 进行空步裁剪，不能连着走两步空步，被将军时不能走空步
      残局走空步，需要进行检验，不然会有特别大的风险
      根节点的Beta值是"MATE_SCORE"，所以不可能发生空步裁剪 */
@@ -111,30 +94,6 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
     if (tryScore >= beta and (this->m_chessboard.isNotEndgame() or
                               searchFull(beta - 1, beta, depth - 2, NO_NULL) >= beta)) {
       return tryScore;
-    }
-  }
-
-  // 剃刀裁剪
-  if (notPVNode and notInCheck and depth <= 3) {
-    // 给静态评价加上第一个边界
-    tryScore = staticEval + 40;
-
-    // 如果超出边界
-    if (tryScore < beta) {
-      // 第一层直接返回评分和静态搜索的最大值
-      if (depth == 1) return std::max(tryScore, searchQuiescence(alpha, beta));
-
-      // 其余情况加上第二个边界
-      tryScore += 60;
-
-      // 如果还是超出边界
-      if (tryScore < beta and depth <= 2) {
-        // 获得静态评分
-        qint16 newScore { searchQuiescence(alpha, beta) };
-
-        // 如果静态评分也超出边界，返回评分和静态搜索的最大值
-        if (newScore < beta) std::max(tryScore, newScore);
-      }
     }
   }
 
