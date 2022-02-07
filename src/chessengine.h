@@ -33,8 +33,6 @@ public:
 
   void setSide(quint8 side);
 
-  quint8 computerSide() const;
-
   quint8 side() const;
 
   QString fen() const;

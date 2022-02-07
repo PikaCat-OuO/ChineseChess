@@ -77,8 +77,6 @@ std::optional<qint16> ChessEngine::getRepeatScore() {
 
 void ChessEngine::setSide(quint8 side) { this->m_chessboard.setSide(side); }
 
-quint8 ChessEngine::computerSide() const { return this->m_chessboard.side() ^ OPP_SIDE; }
-
 quint8 ChessEngine::side() const { return this->m_chessboard.side(); }
 
 QString ChessEngine::fen() const { return this->m_chessboard.getFen(); }

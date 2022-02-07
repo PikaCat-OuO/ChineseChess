@@ -68,6 +68,10 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   // 达到深度就返回静态评价，由于空着裁剪，深度可能小于-1
   if (depth <= 0) return searchQuiescence(alpha, beta);
 
+  // 杀棋步数裁剪
+  qint16 tryScore = LOSS_SCORE + this->m_distance;
+  if (tryScore >= beta) return tryScore;
+
   // 先检查重复局面，获得重复局面标志
   auto repeatScore { this->m_chessboard.getRepeatScore(this->m_distance) };
   // 如果有重复的情况，直接返回分数
@@ -76,7 +80,7 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   // 当前走法
   Move move;
   // 尝试置换表裁剪，并得到置换表走法
-  qint16 tryScore { probeHash(alpha, beta, depth, move) };
+  tryScore = probeHash(alpha, beta, depth, move);
   // 置换表裁剪成功
   if (tryScore > LOSS_SCORE) return tryScore;
 
@@ -95,6 +99,13 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
                               searchFull(beta - 1, beta, depth - 2, NO_NULL) >= beta)) {
       return tryScore;
     }
+  }
+
+  // 内部迭代加深启发，只在PV节点上使用
+  if (beta - alpha > 1 and depth > 2 and move == INVALID_MOVE) {
+    tryScore = searchIID(alpha, beta, depth >> 1);
+    if (tryScore <= alpha) tryScore = searchIID(LOSS_SCORE, beta, depth >> 1);
+    move = this->m_IIDMove;
   }
 
   // 搜索有限状态机
@@ -173,7 +184,96 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   return bestScore;
 }
 
+qint16 SearchInstance::searchIID(qint16 alpha, const qint16 beta, const qint8 depth) {
+  // 当前走法
+  Move move;
+
+  // 搜索有限状态机
+  SearchMachine search { this->m_chessboard, INVALID_MOVE,
+                       this->m_killerTable.getKiller(this->m_distance, 0),
+                       this->m_killerTable.getKiller(this->m_distance, 1) };
+
+  // 最佳走法的标志
+  quint8 bestMoveHashFlag { HASH_ALPHA };
+
+  qint16 tryScore;
+  qint16 bestScore { LOSS_SCORE };
+  Move bestMove { };
+
+  // LMR的计数器
+  quint8 moveSearched { 0 };
+  // 遍历所有走法
+  while ((move = search.getNextMove()).isVaild()) {
+    // 如果被将军了就不搜索这一步
+    if (makeMove(move)) {
+      // 不然就获得评分并更新最好的分数
+      const HistoryMove &lastMove { this->m_chessboard.getLastMove() };
+      // 将军延伸，如果将军了对方就多搜几步
+      qint8 newDepth = lastMove.isChecked() ? depth : depth - 1;
+      // PVS
+      if (moveSearched == 0) tryScore = -searchFull(-beta, -alpha, newDepth);
+      else {
+        // LMR，要求当前层数大于等于3，没有被将军，该步不是吃子步，从第4步棋开始往后
+        if (moveSearched >= 4 and depth >= 3 and
+            newDepth not_eq depth and not lastMove.isCapture()) {
+          tryScore = -searchFull(-alpha - 1, -alpha, newDepth - 1);
+        }
+        // 其余情况保证搜索正常进行
+        else tryScore = alpha + 1;
+        if (tryScore > alpha) {
+          tryScore = -searchFull(-alpha - 1, -alpha, newDepth);
+          if (tryScore > alpha and tryScore < beta) {
+            tryScore = -searchFull(-beta, -alpha, newDepth);
+          }
+        }
+      }
+      // 撤销走棋
+      unMakeMove();
+      if (tryScore > bestScore) {
+        // 找到最佳走法(但不能确定是Alpha、PV还是Beta走法)
+        bestScore = tryScore;
+        // 找到一个Beta走法
+        if (tryScore >= beta) {
+          // 更新走法标志
+          bestMoveHashFlag = HASH_BETA;
+          // Beta走法要保存到历史表
+          bestMove = move;
+          // Beta截断
+          break;
+        }
+        // 找到一个PV走法
+        if (tryScore > alpha) {
+          // 更新走法标志
+          bestMoveHashFlag = HASH_PV;
+          // PV走法要保存到历史表
+          bestMove = move;
+          // 缩小Alpha-Beta边界
+          alpha = tryScore;
+        }
+      }
+      // 搜索了一步棋
+      ++moveSearched;
+    }
+  }
+
+  // 保存内部迭代加深的走法
+  this->m_IIDMove = bestMove;
+
+  // 所有走法都搜索完了，把最佳走法(不能是ALPHA走法)保存到历史表，返回最佳值。如果是杀棋，就根据杀棋步数给出评价
+  if (bestScore == LOSS_SCORE) return LOSS_SCORE + this->m_distance;
+
+  // 记录到置换表
+  recordHash(bestMoveHashFlag, bestScore, depth, bestMove);
+  // 如果不是Alpha走法，并且不是吃子走法，就将最佳走法保存到历史表、杀手表
+  if (bestMove.isVaild() and not bestMove.isCapture()) setBestMove(bestMove, depth);
+  return bestScore;
+}
+
 qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
+  // 杀棋步数裁剪
+  qint16 tryScore = LOSS_SCORE + this->m_distance;
+  if (tryScore >= beta) return tryScore;
+
   // 先检查重复局面，获得重复局面标志
   auto repeatScore { this->m_chessboard.getRepeatScore(this->m_distance) };
   // 如果有重复的情况，直接返回分数
@@ -191,7 +291,7 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
       // 如果被将军了就不搜索这一步
       if (makeMove(move)) {
         // 不然就获得评分并更新最好的分数
-        qint16 tryScore = -searchQuiescence(-beta, -alpha);
+        tryScore = -searchQuiescence(-beta, -alpha);
         // 撤销走棋
         unMakeMove();
         if (tryScore > bestScore) {
@@ -214,7 +314,7 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
 
   // 如果不被将军，先做局面评价，如果局面评价没有截断，再生成吃子走法
   else {
-    qint16 tryScore = this->m_chessboard.score();
+    tryScore = this->m_chessboard.score();
     if (tryScore > bestScore) {
       bestScore = tryScore;
       if (tryScore >= beta) {
@@ -235,7 +335,7 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
       // 如果被将军了就不搜索这一步
       if (makeMove(move)) {
         // 不然就获得评分并更新最好的分数
-        qint16 tryScore = -searchQuiescence(-beta, -alpha);
+        tryScore = -searchQuiescence(-beta, -alpha);
         // 撤销走棋
         unMakeMove();
         if (tryScore > bestScore) {
