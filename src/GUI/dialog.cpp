@@ -295,7 +295,7 @@ bool Dialog::eventFilter(QObject *watched, QEvent *event) {
                                       mSelected->width(), mSelected->height()));
       mChessEatAni->start();
     } else {
-      //在选棋时不是自己方的不让选
+      // 在选棋时不是自己方的不让选
       if (mTarget->text() == (this->m_chessEngine->side() ? "b" : "r")) {
         mSelected = mTarget;
         mSelected->raise();
@@ -423,17 +423,16 @@ void Dialog::on_MinButton_clicked() { this->showMinimized(); }
 //选择红黑槽
 void Dialog::on_PlayerSide_currentIndexChanged(int index) {
   ui->PlayerSide->setDisabled(true);
-  this->m_chessEngine->setSide(index ? PikaChess::RED : PikaChess::BLACK);
-  // 电脑黑子
-  if (this->m_chessEngine->computerSide() == PikaChess::BLACK) {
-    //如果棋盘没翻转，那么翻转一下
+  // 玩家执黑方
+  if (1 == index) {
+    // 如果棋盘没翻转，那么翻转一下
     if (!this->mIsFliped) {
       on_Flip_clicked();
       QEventLoop eventLoop;
       QTimer::singleShot(600, &eventLoop, &QEventLoop::quit);
       eventLoop.exec();
     }
-    //电脑走红子，先行棋
+    // 电脑走红子，先行棋
     computerMove();
   }
 }
