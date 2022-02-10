@@ -48,13 +48,13 @@ constexpr quint32 HASH_SIZE { 1 << 23 };
 constexpr quint32 HASH_MASK { HASH_SIZE - 1 };
 
 /** 走法类型 */
-constexpr quint8 HASH_ALPHA { 0 }, HASH_BETA { 2 }, HASH_PV { 3 };
+constexpr quint8 HASH_ALPHA { 0 }, HASH_BETA { 1 }, HASH_PV { 2 };
 
 /** 空着裁剪标志 */
 constexpr bool NO_NULL { false };
 
 /** 子力的位置分数 */
-constexpr qint16 VALUE[14][90]{
+constexpr qint16 VALUE[14][90] {
 { // 车
     206,208,207,213,214,213,207,208,206,
     206,212,209,216,233,216,209,212,206,
