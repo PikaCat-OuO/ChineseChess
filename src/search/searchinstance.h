@@ -2,6 +2,7 @@
 #include "killertable.h"
 #include "hashtable.h"
 #include "searchmachine.h"
+#include "searchiidmachine.h"
 #include "searchcapturemachine.h"
 #include "searchquiescencemachine.h"
 
@@ -27,6 +28,9 @@ public:
 
   /** 获得最好的走法 */
   Move bestMove() const;
+
+  /** 当前局面有效的走法数 */
+  quint8 legalMove() const;
 
 protected:
   /** 走一步 */
@@ -59,6 +63,9 @@ private:
 
   /** 当前局面下最好的走法 */
   Move m_bestMove { INVALID_MOVE };
+
+  /** 当前局面的有效走法数 */
+  quint8 m_legalMove;
 
   /** 迭代加深时使用的走法 */
   Move m_IIDMove;

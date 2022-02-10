@@ -36,8 +36,9 @@ void ChessEngine::search() {
     this->m_bestScore = searchInstances.front().bestScore();
     this->m_bestMove = searchInstances.front().bestMove();
 
-    // 如果赢了或者输了或者产生了长将局面或者超过时间就停止搜索就不用再往下搜索了
-    if (this->m_bestScore < LOST_SCORE or this->m_bestScore > WIN_SCORE or
+    // 如果只有一个应将走法或者赢了或者输了或者产生了长将局面或者超过时间就停止搜索就不用再往下搜索了
+    if (searchInstances.front().legalMove() == 1 or
+        this->m_bestScore < LOST_SCORE or this->m_bestScore > WIN_SCORE or
         clock() - startTimeStamp > this->m_searchTime) {
       // 从所有的线程中选出分数最高的那一个走法来走
       for (const auto &searchInstance : searchInstances) {

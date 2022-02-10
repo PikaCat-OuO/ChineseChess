@@ -29,7 +29,8 @@ Move SearchMachine::getNextMove() {
     // 遍历走法，逐个返回好的吃子走法，吃亏的吃子着法留到最后搜索
     while (this->m_nowMove < this->m_totalMoves) {
       const ValuedMove &move { this->m_moveList[this->m_nowMove++] };
-      if (move.score() >= 0) return move;
+      if (move == this->m_hashMove) continue;
+      else if (move.score() >= 0) return move;
       else { --this->m_nowMove; break;}
     }
     // 如果没有了就下一步

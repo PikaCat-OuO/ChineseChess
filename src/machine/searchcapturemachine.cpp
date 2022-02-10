@@ -10,13 +10,13 @@ Move SearchCaptureMachine::getNextMove() {
     // 指明下一个阶段
     this->m_phase = PHASE_CAPTURE;
     // 生成吃子走法，使用MVVLVA对其进行排序
-    this->m_totalMoves = this->m_chessboard.genCapMoves(this->m_moveList);
+    this->m_totalMoves = this->m_chessboard.genGoodCapMoves(this->m_moveList);
     std::sort(std::begin(this->m_moveList), std::begin(this->m_moveList) + this->m_totalMoves);
     // 直接下一步
     [[fallthrough]];
 
   case PHASE_CAPTURE:
-    /* 遍历走法，逐个返回吃子走法 */
+    /* 遍历走法，逐个返回好的吃子走法 */
     while (this->m_nowMove < this->m_totalMoves) return this->m_moveList[this->m_nowMove++];
     // 如果没有了就下一步
     [[fallthrough]];
