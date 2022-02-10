@@ -10,7 +10,7 @@ void SearchInstance::searchRoot(const qint8 depth) {
   // 搜索有限状态机
   SearchMachine search { this->m_chessboard, this->m_bestMove,
                        this->m_killerTable.getKiller(this->m_distance, 0),
-                       this->m_killerTable.getKiller(this->m_distance, 1)};
+                       this->m_killerTable.getKiller(this->m_distance, 1) };
 
   qint16 bestScore { LOSS_SCORE };
   // LMR的计数器
@@ -61,6 +61,7 @@ void SearchInstance::searchRoot(const qint8 depth) {
   if (not this->m_bestMove.isCapture()) setBestMove(this->m_bestMove, depth);
 
   this->m_bestScore = bestScore;
+  this->m_legalMove = moveSearched;
 }
 
 qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
@@ -189,9 +190,9 @@ qint16 SearchInstance::searchIID(qint16 alpha, const qint16 beta, const qint8 de
   Move move;
 
   // 搜索有限状态机
-  SearchMachine search { this->m_chessboard, INVALID_MOVE,
-                       this->m_killerTable.getKiller(this->m_distance, 0),
-                       this->m_killerTable.getKiller(this->m_distance, 1) };
+  SearchIIDMachine search { this->m_chessboard,
+                          this->m_killerTable.getKiller(this->m_distance, 0),
+                          this->m_killerTable.getKiller(this->m_distance, 1) };
 
   // 最佳走法的标志
   quint8 bestMoveHashFlag { HASH_ALPHA };
@@ -366,6 +367,8 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
 qint16 SearchInstance::bestScore() const { return this->m_bestScore; }
 
 Move SearchInstance::bestMove() const { return this->m_bestMove; }
+
+quint8 SearchInstance::legalMove() const { return this->m_legalMove; }
 
 bool SearchInstance::makeMove(Move &move) {
   bool result { this->m_chessboard.makeMove(move) };

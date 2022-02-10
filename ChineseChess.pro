@@ -19,16 +19,17 @@ HEADERS += \
     src/GUI/dialog.h \
     src/board/bitboard.h \
     src/board/chessboard.h \
-    src/chessengine.h \
     src/global.h \
+    src/machine/searchcapturemachine.h \
+    src/machine/searchiidmachine.h \
+    src/machine/searchmachine.h \
+    src/machine/searchquiescencemachine.h \
     src/move/historymove.h \
     src/move/move.h \
     src/move/valuedcapmove.h \
     src/move/valuedmove.h \
-    src/search/searchcapturemachine.h \
+    src/search/chessengine.h \
     src/search/searchinstance.h \
-    src/search/searchmachine.h \
-    src/search/searchquiescencemachine.h \
     src/table/hashtable.h \
     src/table/historytable.h \
     src/table/killertable.h \
@@ -39,16 +40,17 @@ SOURCES += \
     src/GUI/dialog.cpp \
     src/board/bitboard.cpp \
     src/board/chessboard.cpp \
-    src/chessengine.cpp \
+    src/machine/searchcapturemachine.cpp \
+    src/machine/searchiidmachine.cpp \
+    src/machine/searchmachine.cpp \
+    src/machine/searchquiescencemachine.cpp \
     src/main.cpp \
     src/move/historymove.cpp \
     src/move/move.cpp \
     src/move/valuedcapmove.cpp \
     src/move/valuedmove.cpp \
-    src/search/searchcapturemachine.cpp \
+    src/search/chessengine.cpp \
     src/search/searchinstance.cpp \
-    src/search/searchmachine.cpp \
-    src/search/searchquiescencemachine.cpp \
     src/table/hashtable.cpp \
     src/table/historytable.cpp \
     src/table/killertable.cpp \
@@ -58,6 +60,7 @@ SOURCES += \
 INCLUDEPATH += src \
     src/GUI \
     src/board \
+    src/machine \
     src/search \
     src/table \
     src/move \
