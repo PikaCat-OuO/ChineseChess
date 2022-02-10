@@ -25,6 +25,13 @@ public:
   quint8 genCapMoves(MoveType *moveList) const;
 
   /**
+   *  返回当前局面的好吃子走法
+   *  @param moveList 生成的走法存放的位置
+   *  @return 生成的走法的个数
+   */
+  quint8 genGoodCapMoves(ValuedCapMove *moveList) const;
+
+  /**
    *  返回当前局面的不吃子走法
    *  @param moveList 生成的走法存放的位置
    *  @return 生成的走法的个数

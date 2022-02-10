@@ -577,10 +577,10 @@ void PreGen::genZobristValues() {
   // 随机数生成引擎
   std::mt19937 engine(time(NULL));
 
-  // 均匀分布
+     // 均匀分布
   std::uniform_int_distribution<quint64> uniform;
 
-  // 生成每一个位置的Zobrist值
+     // 生成每一个位置的Zobrist值
   for (quint8 index { 0 }; index < 90; ++index) {
     // 生成这个位置上每一个棋子的Zobrist值
     for (quint8 chess { RED_ROOK }; chess <= BLACK_KING; ++chess) {

@@ -10,7 +10,7 @@ void SearchInstance::searchRoot(const qint8 depth) {
   // 搜索有限状态机
   SearchMachine search { this->m_chessboard, this->m_bestMove,
                        this->m_killerTable.getKiller(this->m_distance, 0),
-                       this->m_killerTable.getKiller(this->m_distance, 1) };
+                       this->m_killerTable.getKiller(this->m_distance, 1)};
 
   qint16 bestScore { LOSS_SCORE };
   // LMR的计数器

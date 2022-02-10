@@ -29,7 +29,7 @@ public:
   /** 获得最好的走法 */
   Move bestMove() const;
 
-  /** 合法的走法数量 */
+  /** 当前局面有效的走法数 */
   quint8 legalMove() const;
 
 protected:
@@ -61,11 +61,11 @@ private:
   /** 当前局面下最好的分数 */
   qint16 m_bestScore;
 
-  /** 当前局面下的合法走法数量 */
-  quint8 m_legalMove;
-
   /** 当前局面下最好的走法 */
   Move m_bestMove { INVALID_MOVE };
+
+  /** 当前局面的有效走法数 */
+  quint8 m_legalMove;
 
   /** 迭代加深时使用的走法 */
   Move m_IIDMove;
