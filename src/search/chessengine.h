@@ -48,7 +48,7 @@ private:
   Move m_bestMove;
 
   /** 设计搜索时间 */
-  clock_t m_searchTime { 1500 };
+  clock_t m_searchTime { 3000 };
 
   /** 当前的棋盘 */
   Chessboard m_chessboard;

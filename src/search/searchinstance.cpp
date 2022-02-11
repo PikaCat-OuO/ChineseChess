@@ -78,6 +78,23 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   // 如果有重复的情况，直接返回分数
   if (repeatScore.has_value()) return repeatScore.value();
 
+  // 获得静态评分
+  qint16 staticEval { this->m_chessboard.score() };
+
+  // 不是PV节点
+  bool notPVNode { beta - alpha <= 1 };
+
+  bool notInCheck { not this->m_chessboard.getLastMove().isChecked() };
+
+  // 静态评分裁剪
+  if (depth < 3 and notPVNode and notInCheck and beta - 1 > BAN_SCORE_LOSS) {
+    // 裁剪的边界
+    int evalMargin = 40 * depth;
+
+    // 如果放弃一定的分值还是超出边界就返回
+    if (staticEval - evalMargin >= beta) return staticEval - evalMargin;
+  }
+
   // 当前走法
   Move move;
   // 尝试置换表裁剪，并得到置换表走法
@@ -99,6 +116,30 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
     if (tryScore >= beta and (this->m_chessboard.isNotEndgame() or
                               searchFull(beta - 1, beta, depth - 2, NO_NULL) >= beta)) {
       return tryScore;
+    }
+  }
+
+  // 剃刀裁剪
+  if (notPVNode and notInCheck and depth <= 3) {
+    // 给静态评价加上第一个边界
+    tryScore = staticEval + 40;
+
+    // 如果超出边界
+    if (tryScore < beta) {
+      // 第一层直接返回评分和静态搜索的最大值
+      if (depth == 1) return std::max(tryScore, searchQuiescence(alpha, beta));
+
+      // 其余情况加上第二个边界
+      tryScore += 60;
+
+      // 如果还是超出边界
+      if (tryScore < beta and depth <= 2) {
+        // 获得静态评分
+        qint16 newScore { searchQuiescence(alpha, beta) };
+
+        // 如果静态评分也超出边界，返回评分和静态搜索的最大值
+        if (newScore < beta) std::max(tryScore, newScore);
+      }
     }
   }
 
@@ -298,16 +339,10 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
         if (tryScore > bestScore) {
           // 找到最佳走法(但不能确定是Alpha、PV还是Beta走法)
           bestScore = tryScore;
-          // 找到一个Beta走法
-          if (tryScore >= beta) {
-            // Beta截断
-            return tryScore;
-          }
-          // 找到一个PV走法
-          if (tryScore > alpha) {
-            // 缩小Alpha-Beta边界
-            alpha = tryScore;
-          }
+          // 找到一个Beta走法，Beta截断
+          if (tryScore >= beta) return tryScore;
+          // 找到一个PV走法，缩小Alpha-Beta边界
+          if (tryScore > alpha) alpha = tryScore;
         }
       }
     }
@@ -318,14 +353,14 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
     tryScore = this->m_chessboard.score();
     if (tryScore > bestScore) {
       bestScore = tryScore;
-      if (tryScore >= beta) {
-        // Beta截断
-        return tryScore;
-      }
-      if (tryScore > alpha) {
-        // 缩小Alpha-Beta边界
-        alpha = tryScore;
-      }
+      // Beta截断
+      if (tryScore >= beta) return tryScore;
+
+      // 差值(delta)裁剪，如果吃一个车都无法超过alpha就裁剪
+      if (tryScore + 200 < alpha) return alpha;
+
+      // 缩小Alpha-Beta边界
+      if (tryScore > alpha) alpha = tryScore;
     }
 
     // 吃子搜索的有限状态机
@@ -337,21 +372,16 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
       if (makeMove(move)) {
         // 不然就获得评分并更新最好的分数
         tryScore = -searchQuiescence(-beta, -alpha);
+
         // 撤销走棋
         unMakeMove();
         if (tryScore > bestScore) {
           // 找到最佳走法(但不能确定是Alpha、PV还是Beta走法)
           bestScore = tryScore;
-          // 找到一个Beta走法
-          if (tryScore >= beta) {
-            // Beta截断
-            return tryScore;
-          }
-          // 找到一个PV走法
-          if (tryScore > alpha) {
-            // 缩小Alpha-Beta边界
-            alpha = tryScore;
-          }
+          // 找到一个Beta走法，Beta截断
+          if (tryScore >= beta) return tryScore;
+          // 找到一个PV走法，缩小Alpha-Beta边界
+          if (tryScore > alpha) alpha = tryScore;
         }
       }
     }
