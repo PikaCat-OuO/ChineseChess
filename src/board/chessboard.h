@@ -2,7 +2,6 @@
 #include "pregen.h"
 #include "historymove.h"
 #include "valuedmove.h"
-#include "valuedcapmove.h"
 #include "historytable.h"
 
 namespace PikaChess {
@@ -20,16 +19,7 @@ public:
    *  @param moveList 生成的走法存放的位置
    *  @return 生成的走法的个数
    */
-  template <typename MoveType>
-  requires std::is_same_v<ValuedMove, MoveType> or std::is_same_v<ValuedCapMove, MoveType>
-  quint8 genCapMoves(MoveType *moveList) const;
-
-  /**
-   *  返回当前局面的好吃子走法
-   *  @param moveList 生成的走法存放的位置
-   *  @return 生成的走法的个数
-   */
-  quint8 genGoodCapMoves(ValuedCapMove *moveList) const;
+  quint8 genCapMoves(ValuedMove *moveList) const;
 
   /**
    *  返回当前局面的不吃子走法
@@ -57,6 +47,9 @@ public:
 
   /** 判断当前是否属于残局 */
   bool isNotEndgame() const;
+
+  /** 判断当前是否可以走空步 */
+  bool canNull() const;
 
   /**
    * @brief 获得一个局面的重复情况

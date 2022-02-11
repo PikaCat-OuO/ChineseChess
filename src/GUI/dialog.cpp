@@ -442,13 +442,13 @@ void Dialog::on_ComputerHard_currentIndexChanged(int index) {
   // 电脑每一步至少搜索多长时间（单位：毫秒）
   switch (index) {
   case 0:
-    this->m_chessEngine->setSearchTime(1500);
-    break;
-  case 1:
     this->m_chessEngine->setSearchTime(3000);
     break;
+  case 1:
+    this->m_chessEngine->setSearchTime(10000);
+    break;
   default:
-    this->m_chessEngine->setSearchTime(6000);
+    this->m_chessEngine->setSearchTime(30000);
   }
 }
 

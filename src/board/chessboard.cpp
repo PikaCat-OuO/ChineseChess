@@ -95,9 +95,7 @@ QString Chessboard::getFen() const {
   return fen;
 }
 
-template <typename MoveType>
-requires std::is_same_v<ValuedMove, MoveType> or std::is_same_v<ValuedCapMove, MoveType>
-quint8 Chessboard::genCapMoves(MoveType *moveList) const {
+quint8 Chessboard::genCapMoves(ValuedMove *moveList) const {
   // 可用的位置
   Bitboard available { this->m_side == RED ? this->m_blackOccupancy : this->m_redOccupancy };
 
@@ -122,59 +120,13 @@ quint8 Chessboard::genCapMoves(MoveType *moveList) const {
       while ((victimIndex = attack.getLastBitIndex()) < 90) {
         attack.clearBit(victimIndex);
 
-        MoveType &move { moveList[total++] };
+        ValuedMove &move { moveList[total++] };
         move.setMove(chess, this->m_helperBoard[victimIndex], index, victimIndex);
         // 计算棋子的MVVLVA
         qint8 score { MVVLVA[move.victim()] };
         // 如果棋子被保护了还要减去攻击者的分值
         if (isProtected(move.to())) score -= MVVLVA[chess];
         move.setScore(score);
-      }
-    }
-  }
-
-  return total;
-}
-
-template quint8 Chessboard::genCapMoves(ValuedMove *moveList) const;
-template quint8 Chessboard::genCapMoves(ValuedCapMove *moveList) const;
-
-quint8 Chessboard::genGoodCapMoves(ValuedCapMove *moveList) const {
-  // 可用的位置
-  Bitboard available { this->m_side == RED ? this->m_blackOccupancy : this->m_redOccupancy };
-
-  // 生成的走法数
-  quint8 total { 0 };
-
-  // 遍历所有棋子，生成对应的走法
-  for (quint8 chess = ROOK + this->m_side; chess <= KING + this->m_side; ++chess) {
-    // 首先获得该棋子的位棋盘
-    Bitboard bitboard { this->m_bitboards[chess] };
-
-    // 遍历位棋盘上的每一个位
-    quint8 index;
-    while ((index = bitboard.getLastBitIndex()) < 90) {
-      bitboard.clearBit(index);
-
-      // 获取这个位可以攻击到的位置
-      Bitboard attack { PRE_GEN.getAttack(chess, index, this->m_occupancy) & available };
-
-      // 遍历可以攻击的位置，生成对应的走法
-      quint8 victimIndex;
-      while ((victimIndex = attack.getLastBitIndex()) < 90) {
-        attack.clearBit(victimIndex);
-
-        // 计算棋子的MVVLVA
-        qint8 score { MVVLVA[this->m_helperBoard[victimIndex]] };
-        // 如果棋子被保护了还要减去攻击者的分值
-        if (isProtected(victimIndex)) score -= MVVLVA[chess];
-
-        // 如果是好的吃子走法
-        if (score >= 0) {
-          ValuedCapMove &move { moveList[total++] };
-          move.setMove(chess, this->m_helperBoard[victimIndex], index, victimIndex);
-          move.setScore(score);
-        }
       }
     }
   }
@@ -282,6 +234,11 @@ bool Chessboard::isNotEndgame() const {
   else return this->m_blackScore > 400;
 }
 
+bool Chessboard::canNull() const {
+  if (RED == this->m_side) return this->m_redScore > 200;
+  else return this->m_blackScore > 200;
+}
+
 std::optional<qint16> Chessboard::getRepeatScore(quint8 distance) const {
   /* mySide代表的是是否是调用本函数的那一方(下称"我方")
    * 因为一调用搜索就马上调用了本函数，我方没有走棋
@@ -313,7 +270,7 @@ std::optional<qint16> Chessboard::getRepeatScore(quint8 distance) const {
          * distance & 1 的作用是确定现在在那一层
          * 说明evaluate的那一层和第一层是同一方
          * 同一方返回负值，不同方返回正值，这样正值上到第一层就会变成负值 */
-        if (score == 0) return distance & 1 ? -DRAW_SCORE : DRAW_SCORE;
+        if (score == 0) return distance & 1 ? DRAW_SCORE : -DRAW_SCORE;
         // 有一方长将
         else return score;
       }

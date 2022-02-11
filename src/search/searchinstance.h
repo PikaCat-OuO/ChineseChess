@@ -2,8 +2,6 @@
 #include "killertable.h"
 #include "hashtable.h"
 #include "searchmachine.h"
-#include "searchiidmachine.h"
-#include "searchcapturemachine.h"
 #include "searchquiescencemachine.h"
 
 namespace PikaChess {
@@ -16,9 +14,6 @@ public:
 
   /** 完全局面搜索 */
   qint16 searchFull(qint16 alpha, const qint16 beta, const qint8 depth, const bool nullOk = true);
-
-  /** 内部迭代加深搜索 */
-  qint16 searchIID(qint16 alpha, const qint16 beta, const qint8 depth);
 
   /** 静态局面搜索 */
   qint16 searchQuiescence(qint16 alpha, const qint16 beta);
@@ -64,11 +59,11 @@ private:
   /** 当前局面下最好的走法 */
   Move m_bestMove { INVALID_MOVE };
 
+  /** 局面的内部迭代加深走法 */
+  Move m_iidMove { INVALID_MOVE };
+
   /** 当前局面的有效走法数 */
   quint8 m_legalMove;
-
-  /** 迭代加深时使用的走法 */
-  Move m_IIDMove;
 
   /** 每个搜索实例都有自己的棋盘 */
   Chessboard m_chessboard;

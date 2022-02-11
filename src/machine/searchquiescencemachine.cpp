@@ -4,7 +4,7 @@ namespace PikaChess {
 SearchQuiescenceMachine::SearchQuiescenceMachine(const Chessboard &chessboard)
     : m_chessboard { chessboard } { }
 
-Move SearchQuiescenceMachine::getNextMove() {
+Move SearchQuiescenceMachine::getNextMove(bool notInCheck) {
   switch (this->m_phase) {
   case PHASE_CAPTURE_GEN:
     // 指明下一个阶段
@@ -22,6 +22,8 @@ Move SearchQuiescenceMachine::getNextMove() {
       if (move.score() >= 0) return move;
       else { --this->m_nowMove; break; }
     }
+    /* 如果被将军就搜索所有走法，否则只搜索好的吃子走法 */
+    if (notInCheck) return INVALID_MOVE;
     // 如果没有了就下一步
     [[fallthrough]];
 

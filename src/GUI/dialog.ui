@@ -976,7 +976,7 @@ color:transparent;</string>
      </rect>
     </property>
     <property name="title">
-     <string>电脑难度选择</string>
+     <string>最少思考时间</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignCenter</set>
@@ -995,17 +995,17 @@ color:transparent;</string>
      </property>
      <item>
       <property name="text">
-       <string>    简单</string>
+       <string>    3 秒</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>    普通</string>
+       <string>    6 秒</string>
       </property>
      </item>
      <item>
       <property name="text">
-       <string>    地狱</string>
+       <string>    9 秒</string>
       </property>
      </item>
     </widget>
