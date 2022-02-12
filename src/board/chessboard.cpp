@@ -313,7 +313,7 @@ std::optional<qint16> Chessboard::getRepeatScore(quint8 distance) const {
          * distance & 1 的作用是确定现在在那一层
          * 说明evaluate的那一层和第一层是同一方
          * 同一方返回负值，不同方返回正值，这样正值上到第一层就会变成负值 */
-        if (score == 0) return distance & 1 ? -DRAW_SCORE : DRAW_SCORE;
+        if (score == 0) return distance & 1 ? DRAW_SCORE : -DRAW_SCORE;
         // 有一方长将
         else return score;
       }
