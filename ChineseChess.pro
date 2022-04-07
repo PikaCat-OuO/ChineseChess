@@ -2,7 +2,7 @@ QT       += core gui network # testlib
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
-QMAKE_CXXFLAGS += -std=gnu++2b -march=native -mtune=native -fopenmp
+QMAKE_CXXFLAGS += -std=gnu++2b -march=native -fopenmp
 QMAKE_CXXFLAGS_RELEASE += -Ofast -flto
 # The following define makes your compiler emit warnings if you use
 # any Qt feature that has been marked deprecated (the exact warnings
