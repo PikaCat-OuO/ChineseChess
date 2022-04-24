@@ -67,7 +67,8 @@ https://www.chessdb.cn/query/
 
 #### 参考文献
 象棋百科全书：https://www.xqbase.com/computer.htm \
-象棋编程维基百科: https://www.chessprogramming.org/Main_Page
+象棋编程维基百科：https://www.chessprogramming.org/Main_Page \
+Shark象棋引擎论文：http://rportal.lib.ntnu.edu.tw/bitstream/20.500.12235/106625/1/n060147070s01.pdf
 
 #### 参考代码
 象棋小巫师: https://gitee.com/SpiritFinches/xqwizard/tree/master/XQWLIGHT/Win32 \
