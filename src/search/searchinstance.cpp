@@ -13,8 +13,10 @@ void SearchInstance::searchRoot(const qint8 depth) {
                        this->m_killerTable.getKiller(this->m_distance, 1)};
 
   qint16 bestScore { LOSS_SCORE };
+  Move bestMove { };
   // LMR的计数器
   quint8 moveSearched { 0 };
+  this->m_legalMove = 0;
 
   // 遍历所有走法
   while ((move = search.getNextMove()).isVaild()) {
@@ -45,10 +47,12 @@ void SearchInstance::searchRoot(const qint8 depth) {
       }
       // 撤销走棋
       unMakeMove();
+      // 如果没有被杀棋，就认为这一步是合理的走法
+      if (tryScore > BAN_SCORE_LOSS) ++this->m_legalMove;
       if (tryScore > bestScore) {
         // 找到最佳走法
         bestScore = tryScore;
-        this->m_bestMove = move;
+        bestMove = move;
       }
       // 搜索了一步棋
       ++moveSearched;
@@ -59,9 +63,8 @@ void SearchInstance::searchRoot(const qint8 depth) {
   recordHash(HASH_PV, bestScore, depth, this->m_bestMove);
   // 如果不是吃子着法，就保存到历史表和杀手着法表
   if (not this->m_bestMove.isCapture()) setBestMove(this->m_bestMove, depth);
-
+  this->m_bestMove = bestMove;
   this->m_bestScore = bestScore;
-  this->m_legalMove = moveSearched;
 }
 
 qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
@@ -145,9 +148,9 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
 
   // 内部迭代加深启发，只在PV节点上使用
   if (beta - alpha > 1 and depth > 2 and move == INVALID_MOVE) {
-    tryScore = searchIID(alpha, beta, depth >> 1);
-    if (tryScore <= alpha) tryScore = searchIID(LOSS_SCORE, beta, depth >> 1);
-    move = this->m_IIDMove;
+    tryScore = searchFull(alpha, beta, depth >> 1, NO_NULL);
+    if (tryScore <= alpha) tryScore = searchFull(LOSS_SCORE, beta, depth >> 1, NO_NULL);
+    move = this->m_bestMove;
   }
 
   // 搜索有限状态机
@@ -223,91 +226,9 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   recordHash(bestMoveHashFlag, bestScore, depth, bestMove);
   // 如果不是Alpha走法，并且不是吃子走法，就将最佳走法保存到历史表、杀手表
   if (bestMove.isVaild() and not bestMove.isCapture()) setBestMove(bestMove, depth);
-  return bestScore;
-}
 
-qint16 SearchInstance::searchIID(qint16 alpha, const qint16 beta, const qint8 depth) {
-  // 当前走法
-  Move move;
-
-  // 搜索有限状态机
-  SearchIIDMachine search { this->m_chessboard,
-                          this->m_killerTable.getKiller(this->m_distance, 0),
-                          this->m_killerTable.getKiller(this->m_distance, 1) };
-
-  // 最佳走法的标志
-  quint8 bestMoveHashFlag { HASH_ALPHA };
-
-  qint16 tryScore;
-  qint16 bestScore { LOSS_SCORE };
-  Move bestMove { };
-
-  // LMR的计数器
-  quint8 moveSearched { 0 };
-  // 遍历所有走法
-  while ((move = search.getNextMove()).isVaild()) {
-    // 如果被将军了就不搜索这一步
-    if (makeMove(move)) {
-      // 不然就获得评分并更新最好的分数
-      const HistoryMove &lastMove { this->m_chessboard.getLastMove() };
-      // 将军延伸，如果将军了对方就多搜几步
-      qint8 newDepth = lastMove.isChecked() ? depth : depth - 1;
-      // PVS
-      if (moveSearched == 0) tryScore = -searchFull(-beta, -alpha, newDepth);
-      else {
-        // LMR，要求当前层数大于等于3，没有被将军，该步不是吃子步，从第4步棋开始往后
-        if (moveSearched >= 4 and depth >= 3 and
-            newDepth not_eq depth and not lastMove.isCapture()) {
-          tryScore = -searchFull(-alpha - 1, -alpha, newDepth - 1);
-        }
-        // 其余情况保证搜索正常进行
-        else tryScore = alpha + 1;
-        if (tryScore > alpha) {
-          tryScore = -searchFull(-alpha - 1, -alpha, newDepth);
-          if (tryScore > alpha and tryScore < beta) {
-            tryScore = -searchFull(-beta, -alpha, newDepth);
-          }
-        }
-      }
-      // 撤销走棋
-      unMakeMove();
-      if (tryScore > bestScore) {
-        // 找到最佳走法(但不能确定是Alpha、PV还是Beta走法)
-        bestScore = tryScore;
-        // 找到一个Beta走法
-        if (tryScore >= beta) {
-          // 更新走法标志
-          bestMoveHashFlag = HASH_BETA;
-          // Beta走法要保存到历史表
-          bestMove = move;
-          // Beta截断
-          break;
-        }
-        // 找到一个PV走法
-        if (tryScore > alpha) {
-          // 更新走法标志
-          bestMoveHashFlag = HASH_PV;
-          // PV走法要保存到历史表
-          bestMove = move;
-          // 缩小Alpha-Beta边界
-          alpha = tryScore;
-        }
-      }
-      // 搜索了一步棋
-      ++moveSearched;
-    }
-  }
-
-  // 保存内部迭代加深的走法
-  this->m_IIDMove = bestMove;
-
-  // 所有走法都搜索完了，把最佳走法(不能是ALPHA走法)保存到历史表，返回最佳值。如果是杀棋，就根据杀棋步数给出评价
-  if (bestScore == LOSS_SCORE) return LOSS_SCORE + this->m_distance;
-
-  // 记录到置换表
-  recordHash(bestMoveHashFlag, bestScore, depth, bestMove);
-  // 如果不是Alpha走法，并且不是吃子走法，就将最佳走法保存到历史表、杀手表
-  if (bestMove.isVaild() and not bestMove.isCapture()) setBestMove(bestMove, depth);
+  // 提供给内部迭代加深使用
+  this->m_bestMove = bestMove;
   return bestScore;
 }
 
@@ -323,66 +244,42 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
 
   qint16 bestScore { LOSS_SCORE };
 
-  // 如果被将军了，生成所有着法
-  if (this->m_chessboard.getLastMove().isChecked()) {
-    // 静态搜索有限状态机
-    SearchQuiescenceMachine search { this->m_chessboard };
-    // 遍历所有走法
-    Move move;
-    while ((move = search.getNextMove()).isVaild()) {
-      // 如果被将军了就不搜索这一步
-      if (makeMove(move)) {
-        // 不然就获得评分并更新最好的分数
-        tryScore = -searchQuiescence(-beta, -alpha);
-        // 撤销走棋
-        unMakeMove();
-        if (tryScore > bestScore) {
-          // 找到最佳走法(但不能确定是Alpha、PV还是Beta走法)
-          bestScore = tryScore;
-          // 找到一个Beta走法，Beta截断
-          if (tryScore >= beta) return tryScore;
-          // 找到一个PV走法，缩小Alpha-Beta边界
-          if (tryScore > alpha) alpha = tryScore;
-        }
-      }
-    }
-  }
-
-  // 如果不被将军，先做局面评价，如果局面评价没有截断，再生成吃子走法
-  else {
+  // 如果不被将军，先做局面评价，如果局面评价没有截断，再生成走法
+  if (not this->m_chessboard.getLastMove().isChecked()) {
     tryScore = this->m_chessboard.score();
     if (tryScore > bestScore) {
       bestScore = tryScore;
       // Beta截断
       if (tryScore >= beta) return tryScore;
 
-      // 差值(delta)裁剪，如果吃一个车都无法超过alpha就裁剪
-      if (tryScore + 200 < alpha) return alpha;
+      // 差值(delta)裁剪，残局阶段不开启，如果吃一个车都无法超过alpha就裁剪
+      if (this->m_chessboard.isNotEndgame() and tryScore + 200 < alpha) return alpha;
 
       // 缩小Alpha-Beta边界
       if (tryScore > alpha) alpha = tryScore;
     }
+  }
 
-    // 吃子搜索的有限状态机
-    SearchCaptureMachine search { this->m_chessboard };
-    // 遍历所有走法
-    Move move;
-    while ((move = search.getNextMove()).isVaild()) {
-      // 如果被将军了就不搜索这一步
-      if (makeMove(move)) {
-        // 不然就获得评分并更新最好的分数
-        tryScore = -searchQuiescence(-beta, -alpha);
+  // 静态搜索有限状态机
+  SearchQuiescenceMachine search { this->m_chessboard };
 
-        // 撤销走棋
-        unMakeMove();
-        if (tryScore > bestScore) {
-          // 找到最佳走法(但不能确定是Alpha、PV还是Beta走法)
-          bestScore = tryScore;
-          // 找到一个Beta走法，Beta截断
-          if (tryScore >= beta) return tryScore;
-          // 找到一个PV走法，缩小Alpha-Beta边界
-          if (tryScore > alpha) alpha = tryScore;
-        }
+  // 遍历所有走法
+  Move move;
+  while ((move = search.getNextMove(bestScore)).isVaild()) {
+    // 如果被将军了就不搜索这一步
+    if (makeMove(move)) {
+      // 不然就获得评分并更新最好的分数
+      tryScore = -searchQuiescence(-beta, -alpha);
+
+      // 撤销走棋
+      unMakeMove();
+      if (tryScore > bestScore) {
+        // 找到最佳走法(但不能确定是Alpha、PV还是Beta走法)
+        bestScore = tryScore;
+        // 找到一个Beta走法，Beta截断
+        if (tryScore >= beta) return tryScore;
+        // 找到一个PV走法，缩小Alpha-Beta边界
+        if (tryScore > alpha) alpha = tryScore;
       }
     }
   }

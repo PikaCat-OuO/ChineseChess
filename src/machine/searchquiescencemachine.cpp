@@ -4,7 +4,7 @@ namespace PikaChess {
 SearchQuiescenceMachine::SearchQuiescenceMachine(const Chessboard &chessboard)
     : m_chessboard { chessboard } { }
 
-Move SearchQuiescenceMachine::getNextMove() {
+Move SearchQuiescenceMachine::getNextMove(qint16 score) {
   switch (this->m_phase) {
   case PHASE_CAPTURE_GEN:
     // 指明下一个阶段
@@ -22,6 +22,10 @@ Move SearchQuiescenceMachine::getNextMove() {
       if (move.score() >= 0) return move;
       else { --this->m_nowMove; break; }
     }
+    /* 如果搜索完所有的好的吃子走法发现还是处于杀棋的情况，需要继续往下搜索
+     * 要么自己被将军，无法解杀。要么虽然当前局面没有被将军，但是如果只尝试好的吃子走法的话在将来几层就会被杀死
+     * 此时检查是否已经搜索到了让自己不死的走法，如果找到了就此结束搜索 */
+    if (score > BAN_SCORE_LOSS) return INVALID_MOVE;
     // 如果没有了就下一步
     [[fallthrough]];
 
