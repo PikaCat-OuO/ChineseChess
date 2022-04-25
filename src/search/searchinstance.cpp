@@ -13,7 +13,6 @@ void SearchInstance::searchRoot(const qint8 depth) {
                        this->m_killerTable.getKiller(this->m_distance, 1)};
 
   qint16 bestScore { LOSS_SCORE };
-  Move bestMove { };
   // LMR的计数器
   quint8 moveSearched { 0 };
   this->m_legalMove = 0;
@@ -52,7 +51,7 @@ void SearchInstance::searchRoot(const qint8 depth) {
       if (tryScore > bestScore) {
         // 找到最佳走法
         bestScore = tryScore;
-        bestMove = move;
+        this->m_bestMove = move;
       }
       // 搜索了一步棋
       ++moveSearched;
@@ -63,7 +62,6 @@ void SearchInstance::searchRoot(const qint8 depth) {
   recordHash(HASH_PV, bestScore, depth, this->m_bestMove);
   // 如果不是吃子着法，就保存到历史表和杀手着法表
   if (not this->m_bestMove.isCapture()) setBestMove(this->m_bestMove, depth);
-  this->m_bestMove = bestMove;
   this->m_bestScore = bestScore;
 }
 
@@ -150,7 +148,7 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   if (beta - alpha > 1 and depth > 2 and move == INVALID_MOVE) {
     tryScore = searchFull(alpha, beta, depth >> 1, NO_NULL);
     if (tryScore <= alpha) tryScore = searchFull(LOSS_SCORE, beta, depth >> 1, NO_NULL);
-    move = this->m_bestMove;
+    move = this->m_iidMove;
   }
 
   // 搜索有限状态机
@@ -228,7 +226,7 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   if (bestMove.isVaild() and not bestMove.isCapture()) setBestMove(bestMove, depth);
 
   // 提供给内部迭代加深使用
-  this->m_bestMove = bestMove;
+  this->m_iidMove = bestMove;
   return bestScore;
 }
 

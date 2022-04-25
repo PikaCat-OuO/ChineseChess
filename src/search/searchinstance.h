@@ -59,6 +59,9 @@ private:
   /** 当前局面下最好的走法 */
   Move m_bestMove { INVALID_MOVE };
 
+  /** 局面的内部迭代加深走法 */
+  Move m_iidMove { INVALID_MOVE };
+
   /** 当前局面的有效走法数 */
   quint8 m_legalMove;
 
