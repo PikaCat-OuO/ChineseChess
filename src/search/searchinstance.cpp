@@ -67,6 +67,9 @@ void SearchInstance::searchRoot(const qint8 depth) {
 
 qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
                                   const qint8 depth, const bool nullOk) {
+  // 清空内部迭代加深走法
+  this->m_iidMove = INVALID_MOVE;
+
   // 达到深度就返回静态评价，由于空着裁剪，深度可能小于-1
   if (depth <= 0) return searchQuiescence(alpha, beta);
 
@@ -217,6 +220,9 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
     }
   }
 
+  // 提供给内部迭代加深使用
+  this->m_iidMove = bestMove;
+
   // 所有走法都搜索完了，把最佳走法(不能是Alpha走法)保存到历史表，返回最佳值。如果是杀棋，就根据杀棋步数给出评价
   if (bestScore == LOSS_SCORE) return LOSS_SCORE + this->m_distance;
 
@@ -225,8 +231,6 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   // 如果不是Alpha走法，并且不是吃子走法，就将最佳走法保存到历史表、杀手表
   if (bestMove.isVaild() and not bestMove.isCapture()) setBestMove(bestMove, depth);
 
-  // 提供给内部迭代加深使用
-  this->m_iidMove = bestMove;
   return bestScore;
 }
 
