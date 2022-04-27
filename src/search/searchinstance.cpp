@@ -142,7 +142,7 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
         qint16 newScore { searchQuiescence(alpha, beta) };
 
         // 如果静态评分也超出边界，返回评分和静态搜索的最大值
-        if (newScore < beta) std::max(tryScore, newScore);
+        if (newScore < beta) return std::max(tryScore, newScore);
       }
     }
   }
