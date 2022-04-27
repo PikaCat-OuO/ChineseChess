@@ -11,7 +11,7 @@ public:
   SearchQuiescenceMachine(const Chessboard &chessboard);
 
   /** 返回下一个走法 */
-  Move getNextMove(bool notChecked);
+  Move getNextMove(bool notInCheck);
 
 private:
   /** 当前的棋盘 */

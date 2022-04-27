@@ -234,6 +234,11 @@ bool Chessboard::isNotEndgame() const {
   else return this->m_blackScore > 400;
 }
 
+bool Chessboard::canNull() const {
+  if (RED == this->m_side) return this->m_redScore > 200;
+  else return this->m_blackScore > 200;
+}
+
 std::optional<qint16> Chessboard::getRepeatScore(quint8 distance) const {
   /* mySide代表的是是否是调用本函数的那一方(下称"我方")
    * 因为一调用搜索就马上调用了本函数，我方没有走棋

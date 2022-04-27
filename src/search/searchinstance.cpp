@@ -16,6 +16,8 @@ void SearchInstance::searchRoot(const qint8 depth) {
   // LMR的计数器
   quint8 moveSearched { 0 };
   this->m_legalMove = 0;
+  // 是否被对方将军
+  bool notInCheck { not this->m_chessboard.getLastMove().isChecked() };
 
   // 遍历所有走法
   while ((move = search.getNextMove()).isVaild()) {
@@ -31,7 +33,7 @@ void SearchInstance::searchRoot(const qint8 depth) {
         tryScore = -searchFull(LOSS_SCORE, MATE_SCORE, newDepth, NO_NULL);
       } else {
         // LMR，要求当前层数大于等于3，没有被将军，该步不是吃子步，从第4步棋开始往后
-        if (moveSearched >= 4 and depth >= 3 and
+        if (moveSearched >= 4 and depth >= 3 and notInCheck and
             newDepth not_eq depth and not lastMove.isCapture()) {
           tryScore = -searchFull(-bestScore - 1, -bestScore, newDepth - 1);
         }
@@ -107,9 +109,9 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   if (tryScore > LOSS_SCORE) return tryScore;
 
   /* 进行空步裁剪，不能连着走两步空步，被将军时不能走空步
-     残局走空步，需要进行检验，不然会有特别大的风险
+     残局走空步，需要进行检验，不然会有特别大的风险，子力较少时停用空步
      根节点的Beta值是"MATE_SCORE"，所以不可能发生空步裁剪 */
-  if (nullOk and not this->m_chessboard.getLastMove().isChecked()) {
+  if (nullOk and notInCheck and this->m_chessboard.canNull()) {
     // 走一步空步
     makeNullMove();
     // 获得评分，深度减掉空着裁剪推荐的两层，然后本身走了一步空步，还要再减掉一层
@@ -177,8 +179,8 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
       // PVS
       if (moveSearched == 0) tryScore = -searchFull(-beta, -alpha, newDepth);
       else {
-        // LMR，要求当前层数大于等于3，没有被将军，该步不是吃子步，从第4步棋开始往后
-        if (moveSearched >= 4 and depth >= 3 and
+        // LMR，要求当前层数大于等于3，没有被将军，没有将军别人，该步不是吃子步，从第4步棋开始往后
+        if (moveSearched >= 4 and depth >= 3 and notInCheck and
             newDepth not_eq depth and not lastMove.isCapture()) {
           tryScore = -searchFull(-alpha - 1, -alpha, newDepth - 1);
         }
@@ -246,8 +248,9 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
 
   qint16 bestScore { LOSS_SCORE };
 
-  // 如果不被将军，先做局面评价，如果局面评价没有截断，再生成走法
-  if (not this->m_chessboard.getLastMove().isChecked()) {
+  // 如果不被将军，先做局面评价，如果局面评价没有截断，再生成吃子走法
+  bool notInCheck { not this->m_chessboard.getLastMove().isChecked() };
+  if (notInCheck) {
     tryScore = this->m_chessboard.score();
     if (tryScore > bestScore) {
       bestScore = tryScore;
@@ -267,7 +270,7 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
 
   // 遍历所有走法
   Move move;
-  while ((move = search.getNextMove(bestScore)).isVaild()) {
+  while ((move = search.getNextMove(notInCheck)).isVaild()) {
     // 如果被将军了就不搜索这一步
     if (makeMove(move)) {
       // 不然就获得评分并更新最好的分数

@@ -48,6 +48,9 @@ public:
   /** 判断当前是否属于残局 */
   bool isNotEndgame() const;
 
+  /** 判断当前是否可以走空步 */
+  bool canNull() const;
+
   /**
    * @brief 获得一个局面的重复情况
    * @param distance 距离根节点的深度
