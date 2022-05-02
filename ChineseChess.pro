@@ -37,6 +37,7 @@ SOURCES += \
     src/GUI/dialog.cpp \
     src/board/bitboard.cpp \
     src/board/chessboard.cpp \
+    src/evaluate/evaluate.cpp \
     src/machine/searchmachine.cpp \
     src/machine/searchquiescencemachine.cpp \
     src/main.cpp \

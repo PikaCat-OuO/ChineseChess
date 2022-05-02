@@ -1,10 +1,10 @@
 #include "searchquiescencemachine.h"
 
 namespace PikaChess {
-SearchQuiescenceMachine::SearchQuiescenceMachine(const Chessboard &chessboard)
-    : m_chessboard { chessboard } { }
+SearchQuiescenceMachine::SearchQuiescenceMachine(const Chessboard &chessboard, bool notInCheck)
+    : m_chessboard { chessboard }, m_notInCheck { notInCheck } { }
 
-Move SearchQuiescenceMachine::getNextMove(bool notInCheck) {
+Move SearchQuiescenceMachine::getNextMove() {
   switch (this->m_phase) {
   case PHASE_CAPTURE_GEN:
     // 指明下一个阶段
@@ -16,14 +16,14 @@ Move SearchQuiescenceMachine::getNextMove(bool notInCheck) {
     [[fallthrough]];
 
   case PHASE_CAPTURE:
-    /* 遍历走法，逐个返回好的吃子走法，吃亏的吃子着法留到最后搜索 */
+    /* 遍历走法，逐个返回吃子走法 */
     while (this->m_nowMove < this->m_totalMoves) {
       const ValuedMove &move { this->m_moveList[this->m_nowMove++] };
       if (move.score() >= 0) return move;
       else { --this->m_nowMove; break; }
     }
-    /* 如果被将军就搜索所有走法，否则只搜索好的吃子走法 */
-    if (notInCheck) return INVALID_MOVE;
+    /* 如果被将军就搜索所有走法，否则只搜索吃子走法 */
+    if (this->m_notInCheck) return INVALID_MOVE;
     // 如果没有了就下一步
     [[fallthrough]];
 

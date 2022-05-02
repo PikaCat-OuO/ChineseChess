@@ -76,6 +76,10 @@ quint8 Bitboard::countBits() const {
   return _mm_popcnt_u64(this->m_bitboard[0]) + _mm_popcnt_u64(this->m_bitboard[1]);
 }
 
+quint8 Bitboard::countBits(quint8 index) const {
+  return _mm_popcnt_u64(this->m_bitboard[index]);
+}
+
 void Bitboard::print() {
   qDebug("位棋盘的表示:");
   for (qsizetype rank { 0 }; rank < 10; ++rank) {

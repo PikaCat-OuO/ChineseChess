@@ -13,6 +13,7 @@ public:
   void genCannonOccupancy();
   void genBishopOccupancy();
   void genAttackByKnightOccupancy();
+  void genCenterOccupancy();
   Bitboard getEnumOccupancy(const quint64 &occ0, const quint64 &occ1, quint32 count);
 
   void genShiftRook();
@@ -20,6 +21,7 @@ public:
   void genShiftCannon();
   void genShiftBishop();
   void genShiftAttackByKnight();
+  void genShiftCenter();
 
   Bitboard getPreRookAttack(qint8 pos, const Bitboard &occupancy);
   Bitboard getPreKnightAttack(qint8 pos, const Bitboard &occupancy);
@@ -37,6 +39,8 @@ public:
   void genAttackByKnight();
   void genAttackByRedPawn();
   void genAttackByBlackPawn();
+  void genCenter();
+  void genSide();
 
   void genZobristValues();
 
@@ -57,6 +61,13 @@ public:
   /** 获取被兵攻击的位置 */
   Bitboard getAttackByPawn(quint8 side, quint8 index) const;
 
+  /** 获取双方的炮打窝心的位置 */
+  Bitboard getCenter(bool red, const Bitboard &occupancy) const;
+
+  /** 获取选边对应的位置 */
+  Bitboard getRedSide() const;
+  Bitboard getBlackSide() const;
+
   /** 获取某个棋子在某个位置上的Zobrist值 */
   quint64 getZobrist(quint8 chess, quint8 index);
 
@@ -70,6 +81,8 @@ private:
   quint64 m_cannonOccupancy[90][2];
   quint64 m_bishopOccupancy[90][2];
   quint64 m_attackByKnightOccupancy[90][2];
+  /** 炮打窝心的占用位 */
+  quint64 m_centerOccupancy[2][2];
 
   /** 所有滑动棋子的PEXT移位，用于走法生成 */
   quint8 m_rookShift[90];
@@ -78,6 +91,8 @@ private:
   quint8 m_bishopShift[90];
   /** 被马攻击的PEXT移位 */
   quint8 m_attackByKnightShift[90];
+  /** 炮打窝心的PEXT移位 */
+  quint8 m_centerShift[2];
 
   /** 所有棋子的攻击位，用于走法生成 */
   Bitboard m_rookAttack[90][1 << 15];
@@ -93,6 +108,12 @@ private:
   /** 被兵攻击的位置 */
   Bitboard m_attackByRedPawn[90];
   Bitboard m_attackByBlackPawn[90];
+  /** 用于判断炮打窝心的位置 */
+  Bitboard m_center[2][1 << 8];
+
+  /** 双方的那边 */
+  Bitboard m_redSide;
+  Bitboard m_blackSide;
 
   /** 棋盘上每个位置，每个棋子的Zobrist值 */
   quint64 m_zobrists[90][14];

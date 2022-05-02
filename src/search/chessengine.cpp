@@ -12,6 +12,8 @@ void ChessEngine::reset() {
 void ChessEngine::search() {
   // 重置信息
   this->m_hashTable.reset();
+  // 重新计算分值表和分值
+  this->m_chessboard.preCalculateScores();
   // 迭代加深，重置深度
   this->m_currentDepth = 1;
 

@@ -3,6 +3,7 @@
 #include "hashtable.h"
 #include "searchmachine.h"
 #include "searchquiescencemachine.h"
+#include "chessboard.h"
 
 namespace PikaChess {
 class SearchInstance {

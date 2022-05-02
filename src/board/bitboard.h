@@ -57,6 +57,8 @@ public:
   quint8 getLastBitIndex() const;
   /** 数一下现在位棋盘上有多少个1 */
   quint8 countBits() const;
+  /** 功能同上，不过指定是前64位还是后64位 */
+  quint8 countBits(quint8 index) const;
 
   /** 打印位棋盘 */
   void print();

@@ -28,9 +28,6 @@ void Chessboard::parseFen(const QString &fen) {
   this->m_occupancy.clearAllBits();
   memset(this->m_helperBoard, EMPTY, sizeof(this->m_helperBoard));
 
-  // 分数归0
-  this->m_redScore = this->m_blackScore = 0;
-
   // 分割为棋盘和选边两部分
   QStringList fenList { fen.split(' ') };
 
@@ -46,14 +43,8 @@ void Chessboard::parseFen(const QString &fen) {
       this->m_helperBoard[count] = FEN_MAP[ch];
       break;
     }
-    if (ch.isLower()) {
-      this->m_blackScore += VALUE[FEN_MAP[ch]][count];
-      this->m_blackOccupancy.setBit(count);
-    }
-    else {
-      this->m_redScore += VALUE[FEN_MAP[ch]][count];
-      this->m_redOccupancy.setBit(count);
-    }
+    if (ch.isLower()) this->m_blackOccupancy.setBit(count);
+    else this->m_redOccupancy.setBit(count);
     this->m_occupancy.setBit(count);
     ++count;
   }
@@ -64,6 +55,9 @@ void Chessboard::parseFen(const QString &fen) {
 
   // 重置步数计数器
   this->m_historyMovesCount = 1;
+
+  // 调用预计算函数
+  this->preCalculateScores();
 }
 
 QString Chessboard::getFen() const {
@@ -103,31 +97,29 @@ quint8 Chessboard::genCapMoves(ValuedMove *moveList) const {
   quint8 total { 0 };
 
   // 遍历所有棋子，生成对应的走法
-  for (quint8 chess = ROOK + this->m_side; chess <= KING + this->m_side; ++chess) {
-    // 首先获得该棋子的位棋盘
-    Bitboard bitboard { this->m_bitboards[chess] };
+  Bitboard bitboard { this->m_side == RED ? this->m_redOccupancy : this->m_blackOccupancy };
 
-    // 遍历位棋盘上的每一个位
-    quint8 index;
-    while ((index = bitboard.getLastBitIndex()) < 90) {
-      bitboard.clearBit(index);
+  // 遍历位棋盘上的每一个位
+  quint8 index;
+  while ((index = bitboard.getLastBitIndex()) < 90) {
+    bitboard.clearBit(index);
+    quint8 chess { this->m_helperBoard[index] };
 
-      // 获取这个位可以攻击到的位置
-      Bitboard attack { PRE_GEN.getAttack(chess, index, this->m_occupancy) & available };
+    // 获取这个位可以攻击到的位置
+    Bitboard attack { PRE_GEN.getAttack(chess, index, this->m_occupancy) & available };
 
-      // 遍历可以攻击的位置，生成对应的走法
-      quint8 victimIndex;
-      while ((victimIndex = attack.getLastBitIndex()) < 90) {
-        attack.clearBit(victimIndex);
+    // 遍历可以攻击的位置，生成对应的走法
+    quint8 victimIndex;
+    while ((victimIndex = attack.getLastBitIndex()) < 90) {
+      attack.clearBit(victimIndex);
 
-        ValuedMove &move { moveList[total++] };
-        move.setMove(chess, this->m_helperBoard[victimIndex], index, victimIndex);
-        // 计算棋子的MVVLVA
-        qint8 score { MVVLVA[move.victim()] };
-        // 如果棋子被保护了还要减去攻击者的分值
-        if (isProtected(move.to())) score -= MVVLVA[chess];
-        move.setScore(score);
-      }
+      ValuedMove &move { moveList[total++] };
+      move.setMove(chess, this->m_helperBoard[victimIndex], index, victimIndex);
+      // 计算棋子的MVVLVA
+      qint8 score { MVVLVA[move.victim()] };
+      // 如果棋子被保护了还要减去攻击者的分值
+      if (isProtected(move.to(), this->m_side)) score -= MVVLVA[chess];
+      move.setScore(score);
     }
   }
 
@@ -142,24 +134,23 @@ quint8 Chessboard::genNonCapMoves(ValuedMove *moveList) const {
   quint8 total { 0 };
 
   // 遍历所有棋子，生成对应的走法
-  for (quint8 chess = ROOK + this->m_side; chess <= KING + this->m_side; ++chess) {
-    // 首先获得该棋子的位棋盘
-    Bitboard bitboard { this->m_bitboards[chess] };
+  Bitboard bitboard { this->m_side == RED ? this->m_redOccupancy : this->m_blackOccupancy };
 
-    // 遍历位棋盘上的每一个位
-    quint8 index;
-    while ((index = bitboard.getLastBitIndex()) < 90) {
-      bitboard.clearBit(index);
-      // 获取这个位可以攻击到的位置
-      Bitboard attack { PRE_GEN.getAttack(chess, index, this->m_occupancy) & available };
-      // 遍历可以攻击的位置，生成对应的走法
-      quint8 attackIndex;
-      while ((attackIndex = attack.getLastBitIndex()) < 90) {
-        attack.clearBit(attackIndex);
-        ValuedMove &move { moveList[total++] };
-        move.setMove(chess, EMPTY, index, attackIndex);
-        move.setScore(this->m_historyTable.getValue(move));
-      }
+  // 遍历位棋盘上的每一个位
+  quint8 index;
+  while ((index = bitboard.getLastBitIndex()) < 90) {
+    bitboard.clearBit(index);
+    quint8 chess { this->m_helperBoard[index] };
+
+    // 获取这个位可以攻击到的位置
+    Bitboard attack { PRE_GEN.getAttack(chess, index, this->m_occupancy) & available };
+    // 遍历可以攻击的位置，生成对应的走法
+    quint8 attackIndex;
+    while ((attackIndex = attack.getLastBitIndex()) < 90) {
+      attack.clearBit(attackIndex);
+      ValuedMove &move { moveList[total++] };
+      move.setMove(chess, EMPTY, index, attackIndex);
+      move.setScore(this->m_historyTable.getValue(move));
     }
   }
 
@@ -187,9 +178,9 @@ bool Chessboard::isChecked() const {
       (PRE_GEN.getAttackByPawn(this->m_side, index) & this->m_bitboards[PAWN + oppSide]));
 }
 
-bool Chessboard::isProtected(quint8 index) const {
+bool Chessboard::isProtected(quint8 index, quint8 side) const {
   // 获取对方的选边
-  quint8 oppSide = this->m_side ^ OPP_SIDE;
+  quint8 oppSide = side ^ OPP_SIDE;
 
   return
       // 看这个位置有没有被车保护
@@ -202,7 +193,7 @@ bool Chessboard::isProtected(quint8 index) const {
       (PRE_GEN.getAttackByKnight(index, this->m_occupancy) &
        this->m_bitboards[KNIGHT + oppSide]) or
       // 看这个位置有没有被兵保护
-      (PRE_GEN.getAttackByPawn(this->m_side, index) & this->m_bitboards[PAWN + oppSide]) or
+      (PRE_GEN.getAttackByPawn(side, index) & this->m_bitboards[PAWN + oppSide]) or
       // 看这个位置有没有被象保护
       (PRE_GEN.getBishopAttack(index, this->m_occupancy) &
        this->m_bitboards[BISHOP + oppSide]) or
@@ -232,11 +223,6 @@ bool Chessboard::isLegalMove(Move &move) const {
 bool Chessboard::isNotEndgame() const {
   if (RED == this->m_side) return this->m_redScore > 400;
   else return this->m_blackScore > 400;
-}
-
-bool Chessboard::canNull() const {
-  if (RED == this->m_side) return this->m_redScore > 200;
-  else return this->m_blackScore > 200;
 }
 
 std::optional<qint16> Chessboard::getRepeatScore(quint8 distance) const {
@@ -451,14 +437,4 @@ quint8 Chessboard::side() const { return this->m_side; }
 void Chessboard::setSide(quint8 newSide) { this->m_side = newSide; }
 
 quint64 Chessboard::zobrist() const { return this->m_zobrist; }
-
-qint16 Chessboard::score() const {
-  /*
-    为何此处要额外加上一个ADVANCED_SCORE先行棋分？因为执行该函数时本身是轮到该层玩家走棋，
-    但是因为各种原因只能搜索到这里了，该层玩家没有走棋而直接返回了这个局面下自己的评分!
-    实际上这样对他的评价是不够正确的，所以加上一个补偿分数，代表下一步是该玩家先行，使得评价更公正一些!
-  */
-  if (RED == this->m_side) return this->m_redScore - this->m_blackScore + ADVANCED_SCORE;
-  else return this->m_blackScore - this->m_redScore + ADVANCED_SCORE;
-}
 }

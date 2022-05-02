@@ -34,9 +34,10 @@ public:
   /**
    * @brief 判断一个位置是否被保护了
    * @param index 位置
+   * @param side 当前选边
    * @return 这个位置是否被保护了
    */
-  bool isProtected(quint8 index) const;
+  bool isProtected(quint8 index, quint8 side) const;
 
   /**
    * @brief 判断一个走法是否合法
@@ -47,9 +48,6 @@ public:
 
   /** 判断当前是否属于残局 */
   bool isNotEndgame() const;
-
-  /** 判断当前是否可以走空步 */
-  bool canNull() const;
 
   /**
    * @brief 获得一个局面的重复情况
@@ -88,9 +86,13 @@ public:
 
   quint64 zobrist() const;
 
-  qint16 score() const;
-
   quint8 side() const;
+
+  /** 评价分预计算，根据局面情况预计算局面分，引擎棋力的主要来源 */
+  void preCalculateScores();
+
+  /** 获得当前局面的评分 */
+  qint16 score() const;
 
 protected:
   /**
@@ -98,6 +100,16 @@ protected:
    * @param move 一个走法
    */
   void undoMove(const Move &move);
+
+  /** 局面的静态评分，只包括子力的位置分 */
+  qint16 staticScore() const;
+
+  /** 王安全分，包括空头炮，炮镇窝心马，沉底炮，车封锁将门 */
+  qint16 kingSafety() const;
+
+  /** 计算王安全分的帮助函数 */
+  qint16 kingSafety_helper(quint8 side, quint8 center,
+                           quint8 left, quint8 middle, quint8 right) const;
 
 private:
   /** 用来辅助走法生成的辅助数组棋盘 */

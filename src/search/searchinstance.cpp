@@ -13,7 +13,7 @@ void SearchInstance::searchRoot(const qint8 depth) {
                        this->m_killerTable.getKiller(this->m_distance, 1)};
 
   qint16 bestScore { LOSS_SCORE };
-  // LMR/LMP的计数器
+  // LMR的计数器
   quint8 moveSearched { 0 };
   this->m_legalMove = 0;
   // 是否被对方将军
@@ -32,20 +32,15 @@ void SearchInstance::searchRoot(const qint8 depth) {
       if (moveSearched == 0) {
         tryScore = -searchFull(LOSS_SCORE, MATE_SCORE, newDepth, NO_NULL);
       } else {
-        // 保证搜索正常进行
-        tryScore = bestScore + 1;
-        // LMR/LMP，要求没有被将军，该步不是吃子步
-        if (notInCheck and newDepth not_eq depth and not lastMove.isCapture()) {
-          // LMR，在层数大于等于3时使用
-          if (depth >= 3) {
-            qint8 reduce = 1;
-            // 靠后的走法采用更加激进的裁剪策略
-            if (moveSearched >= 6) reduce = depth / 3;
-            tryScore = -searchFull(-bestScore - 1, -bestScore, newDepth - reduce);
-          }
-          // LMP，在层数小于3时使用，要求已经搜索过了一定数量的走法
-          else if (moveSearched > 6 * depth) tryScore = LOSS_SCORE;
+        // LMR，在层数大于等于3时使用，要求没有被将军，没有将军别人，该步不是吃子步
+        if (depth >= 3 and notInCheck and newDepth not_eq depth and not lastMove.isCapture()) {
+          qint8 reduce = 1;
+          // 靠后的走法采用更加激进的裁剪策略
+          if (moveSearched >= 6) reduce = depth / 3;
+          tryScore = -searchFull(-bestScore - 1, -bestScore, newDepth - reduce);
         }
+        // 其余情况保证搜索正常进行
+        else tryScore = bestScore + 1;
         if (tryScore > bestScore) {
           tryScore = -searchFull(-bestScore - 1, -bestScore, newDepth);
           if (tryScore > bestScore) {
@@ -66,7 +61,6 @@ void SearchInstance::searchRoot(const qint8 depth) {
       ++moveSearched;
     }
   }
-
   // 记录到置换表
   recordHash(HASH_PV, bestScore, depth, this->m_bestMove);
   // 如果不是吃子着法，就保存到历史表和杀手着法表
@@ -116,9 +110,9 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   if (tryScore > LOSS_SCORE) return tryScore;
 
   /* 进行空步裁剪，不能连着走两步空步，被将军时不能走空步
-     残局走空步，需要进行检验，不然会有特别大的风险，子力较少时停用空步
+     残局走空步，需要进行检验，不然会有特别大的风险
      根节点的Beta值是"MATE_SCORE"，所以不可能发生空步裁剪 */
-  if (nullOk and notInCheck and this->m_chessboard.canNull()) {
+  if (nullOk and notInCheck) {
     // 走一步空步
     makeNullMove();
     // 获得评分，深度减掉空着裁剪推荐的两层，然后本身走了一步空步，还要再减掉一层
@@ -173,7 +167,7 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   qint16 bestScore { LOSS_SCORE };
   Move bestMove { };
 
-  // LMR/LMP的计数器
+  // LMR的计数器
   quint8 moveSearched { 0 };
   // 遍历所有走法
   while ((move = search.getNextMove()).isVaild()) {
@@ -186,18 +180,11 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
       // PVS
       if (moveSearched == 0) tryScore = -searchFull(-beta, -alpha, newDepth);
       else {
-        // 保证搜索正常进行
-        tryScore = alpha + 1;
-        // LMR/LMP，要求没有被将军，该步不是吃子步
-        if (notInCheck and newDepth not_eq depth and not lastMove.isCapture()) {
-          // LMR，在层数大于等于3时使用
-          if (depth >= 3) {
-            qint8 reduce = 1;
-            if (moveSearched >= 6) reduce = depth / 3;
-            tryScore = -searchFull(-alpha - 1, -alpha, newDepth - reduce);
-          }
-          // LMP，在层数小于3时使用，要求已经搜索过了一定数量的走法
-          else if (moveSearched > 6 * depth) tryScore = LOSS_SCORE;
+        // LMR，在层数大于等于3时使用，要求没有被将军，没有将军别人，该步不是吃子步
+        if (depth >= 3 and notInCheck and newDepth not_eq depth and not lastMove.isCapture()) {
+          qint8 reduce = 1;
+          if (moveSearched >= 6) reduce = depth / 3;
+          tryScore = -searchFull(-alpha - 1, -alpha, newDepth - reduce);
         }
         // 其余情况保证搜索正常进行
         else tryScore = alpha + 1;
@@ -281,11 +268,11 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
   }
 
   // 静态搜索有限状态机
-  SearchQuiescenceMachine search { this->m_chessboard };
+  SearchQuiescenceMachine search { this->m_chessboard, notInCheck };
 
   // 遍历所有走法
   Move move;
-  while ((move = search.getNextMove(notInCheck)).isVaild()) {
+  while ((move = search.getNextMove()).isVaild()) {
     // 如果被将军了就不搜索这一步
     if (makeMove(move)) {
       // 不然就获得评分并更新最好的分数

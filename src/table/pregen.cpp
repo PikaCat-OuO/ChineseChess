@@ -24,6 +24,7 @@ PreGen::PreGen() {
   genCannonOccupancy();
   genBishopOccupancy();
   genAttackByKnightOccupancy();
+  genCenterOccupancy();
 
   // 计算PEXT移位
   genShiftRook();
@@ -31,6 +32,7 @@ PreGen::PreGen() {
   genShiftCannon();
   genShiftBishop();
   genShiftAttackByKnight();
+  genShiftCenter();
 
   // 生成走法
   genRook();
@@ -44,6 +46,8 @@ PreGen::PreGen() {
   genAttackByKnight();
   genAttackByRedPawn();
   genAttackByBlackPawn();
+  genCenter();
+  genSide();
 
   // 生成Zobrist值;
   genZobristValues();
@@ -141,6 +145,18 @@ void PreGen::genAttackByKnightOccupancy() {
   }
 }
 
+void PreGen::genCenterOccupancy() {
+  Bitboard bitboard;
+  for (quint8 index { 22 }; index <= 85; index += 9) bitboard.setBit(index);
+  this->m_centerOccupancy[0][0] = bitboard.m_bitboard[0];
+  this->m_centerOccupancy[0][1] = bitboard.m_bitboard[1];
+  bitboard.clearAllBits();
+
+  for (quint8 index { 4 }; index <= 67; index += 9) bitboard.setBit(index);
+  this->m_centerOccupancy[1][0] = bitboard.m_bitboard[0];
+  this->m_centerOccupancy[1][1] = bitboard.m_bitboard[1];
+}
+
 Bitboard PreGen::getEnumOccupancy(const quint64 &occ0, const quint64 &occ1, quint32 count)
 {
   Bitboard occupancy { };
@@ -194,9 +210,14 @@ void PreGen::genShiftAttackByKnight() {
 #pragma omp parallel for
   for (int i = 0; i < 90; ++i) {
     // 计算高位的位移
-    this->m_attackByKnightShift[i] = _mm_popcnt_u64(
-        this->m_attackByKnightOccupancy[i][1]);
+    this->m_attackByKnightShift[i] = _mm_popcnt_u64(this->m_attackByKnightOccupancy[i][1]);
   }
+}
+
+void PreGen::genShiftCenter() {
+  // 计算高位的位移
+  this->m_centerShift[0] = _mm_popcnt_u64(this->m_centerOccupancy[0][1]);
+  this->m_centerShift[1] = _mm_popcnt_u64(this->m_centerOccupancy[1][1]);
 }
 
 Bitboard PreGen::getPreRookAttack(qint8 pos, const Bitboard &occupancy) {
@@ -573,14 +594,62 @@ void PreGen::genAttackByBlackPawn() {
   }
 }
 
+void PreGen::genCenter() {
+  // 生成黑方的攻击窝心马的炮的位置
+  for (quint16 i { 0 }; i < (1 << 8); ++i) {
+    Bitboard occupancy { getEnumOccupancy(this->m_centerOccupancy[0][0],
+                                        this->m_centerOccupancy[0][1], i) };
+    qint8 rank = 13 / 9;
+    qint8 file = 13 % 9;
+    Bitboard bitboard;
+    // 向下走的情况
+    qint8 down = rank + 1;
+    while (down <= 9 and not occupancy[down * 9 + file]) ++down;
+    ++down;
+    while (down <= 9 and not occupancy[down * 9 + file]) ++down;
+    if (down <= 9) bitboard.setBit(down * 9 + file);
+    quint64 pextIndex = occupancy.getPextIndex(this->m_centerOccupancy[0][0],
+                                               this->m_centerOccupancy[0][1],
+                                               this->m_centerShift[0]);
+    this->m_center[0][pextIndex] = bitboard;
+  }
+  // 生成红方的攻击窝心马的炮的位置
+  for (quint16 i { 0 }; i < (1 << 8); ++i) {
+    Bitboard occupancy { getEnumOccupancy(this->m_centerOccupancy[1][0],
+                                        this->m_centerOccupancy[1][1], i) };
+    qint8 rank = 76 / 9;
+    qint8 file = 76 % 9;
+    Bitboard bitboard;
+    // 向上走的情况
+    qint8 up = rank - 1;
+    while (up >= 0 and not occupancy[up * 9 + file]) --up;
+    --up;
+    while (up >= 0 and not occupancy[up * 9 + file]) --up;
+    if (up >= 0) bitboard.setBit(up * 9 + file);
+    quint64 pextIndex = occupancy.getPextIndex(this->m_centerOccupancy[1][0],
+                                               this->m_centerOccupancy[1][1],
+                                               this->m_centerShift[1]);
+    this->m_center[1][pextIndex] = bitboard;
+  }
+}
+
+void PreGen::genSide() {
+  Bitboard bitboard;
+  for (quint8 index { 45 }; index < 90; ++index) bitboard.setBit(index);
+  this->m_redSide = bitboard;
+  bitboard.clearAllBits();
+  for (quint8 index { 0 }; index < 45; ++index) bitboard.setBit(index);
+  this->m_blackSide = bitboard;
+}
+
 void PreGen::genZobristValues() {
   // 随机数生成引擎
-  std::mt19937 engine(time(NULL));
+  std::mt19937_64 engine(time(NULL));
 
-     // 均匀分布
+  // 均匀分布
   std::uniform_int_distribution<quint64> uniform;
 
-     // 生成每一个位置的Zobrist值
+  // 生成每一个位置的Zobrist值
   for (quint8 index { 0 }; index < 90; ++index) {
     // 生成这个位置上每一个棋子的Zobrist值
     for (quint8 chess { RED_ROOK }; chess <= BLACK_KING; ++chess) {
@@ -588,7 +657,7 @@ void PreGen::genZobristValues() {
     }
   }
 
-     // 生成选边的Zobrist值
+  // 生成选边的Zobrist值
   this->m_sideZobrist = uniform(engine);
 }
 
@@ -660,6 +729,17 @@ Bitboard PreGen::getAttackByPawn(quint8 side, quint8 index) const {
   if (RED == side) return this->m_attackByBlackPawn[index];
   else return this->m_attackByRedPawn[index];
 }
+
+Bitboard PreGen::getCenter(bool red, const Bitboard &occupancy) const {
+  quint64 pextIndex { occupancy.getPextIndex(this->m_centerOccupancy[red][0],
+                                           this->m_centerOccupancy[red][1],
+                                           this->m_centerShift[red]) };
+  return this->m_center[red][pextIndex];
+}
+
+Bitboard PreGen::getRedSide() const { return this->m_redSide; }
+
+Bitboard PreGen::getBlackSide() const { return this->m_blackSide; }
 
 quint64 PreGen::getZobrist(quint8 chess, quint8 index) { return this->m_zobrists[index][chess]; }
 

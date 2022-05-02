@@ -8,10 +8,10 @@ public:
    * @brief 静态搜索状态机的构造函数
    * @param chessboard 当前的棋盘
    */
-  SearchQuiescenceMachine(const Chessboard &chessboard);
+  SearchQuiescenceMachine(const Chessboard &chessboard, bool notInCheck);
 
   /** 返回下一个走法 */
-  Move getNextMove(bool notInCheck);
+  Move getNextMove();
 
 private:
   /** 当前的棋盘 */
@@ -19,6 +19,9 @@ private:
 
   /** 状态机当前的状态 */
   quint8 m_phase { PHASE_CAPTURE_GEN };
+
+  /** 当前局面是否不被将军 */
+  bool m_notInCheck;
 
   /** 现在正在遍历第几个走法 */
   quint8 m_nowMove { 0 };
