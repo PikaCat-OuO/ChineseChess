@@ -55,7 +55,7 @@ private:
   quint8 m_distance { 0 };
 
   /** 当前局面下最好的分数 */
-  qint16 m_bestScore;
+  qint16 m_bestScore { LOSS_SCORE };
 
   /** 当前局面下最好的走法 */
   Move m_bestMove { INVALID_MOVE };

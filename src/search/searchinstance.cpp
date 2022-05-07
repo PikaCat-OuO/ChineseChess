@@ -13,7 +13,7 @@ void SearchInstance::searchRoot(const qint8 depth) {
                        this->m_killerTable.getKiller(this->m_distance, 1)};
 
   qint16 bestScore { LOSS_SCORE };
-  // LMR的计数器
+  // 搜索计数器
   quint8 moveSearched { 0 };
   this->m_legalMove = 0;
   // 是否被对方将军
@@ -32,15 +32,21 @@ void SearchInstance::searchRoot(const qint8 depth) {
       if (moveSearched == 0) {
         tryScore = -searchFull(LOSS_SCORE, MATE_SCORE, newDepth, NO_NULL);
       } else {
-        // LMR，在层数大于等于3时使用，要求没有被将军，没有将军别人，该步不是吃子步
-        if (depth >= 3 and notInCheck and newDepth not_eq depth and not lastMove.isCapture()) {
-          qint8 reduce = 1;
-          // 靠后的走法采用更加激进的裁剪策略
-          if (moveSearched >= 6) reduce = depth / 3;
-          tryScore = -searchFull(-bestScore - 1, -bestScore, newDepth - reduce);
+        // 对于延迟走法的处理，要求没有被将军，没有将军别人，该步不是吃子步
+        tryScore = bestScore + 1;
+        if (notInCheck and newDepth not_eq depth and not lastMove.isCapture()) {
+          // LMR，在层数大于等于3时使用
+          if (depth >= 3) {
+            qint8 reduce = 1;
+            // 靠后的走法采用更加激进的裁剪策略
+            if (moveSearched >= 6) reduce = depth / 3;
+            tryScore = -searchFull(-bestScore - 1, -bestScore, newDepth - reduce);
+          }
+          // LMP，在层数小于3时使用，要求已经搜索了一定数量的走法，并且不能处于杀棋的边缘状态
+          else if (moveSearched >= 3 * depth and
+                   bestScore > LOST_SCORE and
+                   this->m_bestScore < WIN_SCORE) tryScore = LOSS_SCORE;
         }
-        // 其余情况保证搜索正常进行
-        else tryScore = bestScore + 1;
         if (tryScore > bestScore) {
           tryScore = -searchFull(-bestScore - 1, -bestScore, newDepth);
           if (tryScore > bestScore) {
@@ -167,7 +173,7 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   qint16 bestScore { LOSS_SCORE };
   Move bestMove { };
 
-  // LMR的计数器
+  // 搜索计数器
   quint8 moveSearched { 0 };
   // 遍历所有走法
   while ((move = search.getNextMove()).isVaild()) {
@@ -180,14 +186,20 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
       // PVS
       if (moveSearched == 0) tryScore = -searchFull(-beta, -alpha, newDepth);
       else {
-        // LMR，在层数大于等于3时使用，要求没有被将军，没有将军别人，该步不是吃子步
-        if (depth >= 3 and notInCheck and newDepth not_eq depth and not lastMove.isCapture()) {
-          qint8 reduce = 1;
-          if (moveSearched >= 6) reduce = depth / 3;
-          tryScore = -searchFull(-alpha - 1, -alpha, newDepth - reduce);
+        // 对于延迟走法的处理，要求没有被将军，没有将军别人，该步不是吃子步
+        tryScore = alpha + 1;
+        if (notInCheck and newDepth not_eq depth and not lastMove.isCapture()) {
+          // LMR，在层数大于等于3时使用
+          if (depth >= 3) {
+            qint8 reduce = 1;
+            if (moveSearched >= 6) reduce = depth / 3;
+            tryScore = -searchFull(-alpha - 1, -alpha, newDepth - reduce);
+          }
+          // LMP，在层数小于3时使用，要求已经搜索了一定数量的走法，并且不能处于杀棋的边缘状态
+          else if (moveSearched >= 3 * depth and
+                   bestScore > LOST_SCORE and
+                   this->m_bestScore < WIN_SCORE) tryScore = LOSS_SCORE;
         }
-        // 其余情况保证搜索正常进行
-        else tryScore = alpha + 1;
         if (tryScore > alpha) {
           tryScore = -searchFull(-alpha - 1, -alpha, newDepth);
           if (tryScore > alpha and tryScore < beta) {
