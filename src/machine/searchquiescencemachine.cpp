@@ -11,7 +11,7 @@ Move SearchQuiescenceMachine::getNextMove() {
     this->m_phase = PHASE_CAPTURE;
     // 生成吃子走法，使用MVVLVA对其进行排序
     this->m_totalMoves = this->m_chessboard.genCapMoves(this->m_moveList);
-    std::sort(std::begin(this->m_moveList), std::begin(this->m_moveList) + this->m_totalMoves);
+    std::sort(this->m_moveList, this->m_moveList + this->m_totalMoves);
     // 直接下一步
     [[fallthrough]];
 
@@ -33,8 +33,7 @@ Move SearchQuiescenceMachine::getNextMove() {
     // 生成非吃子的走法并使用历史表对其进行排序
     this->m_totalMoves += this->m_chessboard.genNonCapMoves(
         this->m_moveList + this->m_totalMoves);
-    std::sort(std::begin(this->m_moveList) + this->m_nowMove,
-              std::begin(this->m_moveList) + this->m_totalMoves);
+    std::sort(this->m_moveList + this->m_nowMove, this->m_moveList + this->m_totalMoves);
     // 直接下一步
     [[fallthrough]];
 
@@ -44,8 +43,7 @@ Move SearchQuiescenceMachine::getNextMove() {
     // 如果没有了就直接返回
     [[fallthrough]];
 
-  default:
-    return INVALID_MOVE;
+  default: return INVALID_MOVE;
   }
 }
 }

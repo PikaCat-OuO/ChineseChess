@@ -7,8 +7,6 @@
 namespace PikaChess {
 class Chessboard final {
 public:
-  Chessboard();
-
   /** 将一个FEN串转化为棋盘 */
   void parseFen(const QString &fen);
   /** 将一个棋盘上的棋子转化为FEN串 */
@@ -91,6 +89,9 @@ public:
   /** 评价分预计算，根据局面情况预计算局面分，引擎棋力的主要来源 */
   void preCalculateScores();
 
+  /** 局面的静态评分，只包括子力的位置分 */
+  qint16 staticScore() const;
+
   /** 获得当前局面的评分 */
   qint16 score() const;
 
@@ -101,8 +102,11 @@ protected:
    */
   void undoMove(const Move &move);
 
-  /** 局面的静态评分，只包括子力的位置分 */
-  qint16 staticScore() const;
+  /**
+   * @brief 获得当前局面下被走子方捉的子
+   * @return 被捉的子的flag
+   */
+  quint16 getChase();
 
   /** 王安全分，包括空头炮，炮镇窝心马，沉底炮，车封锁将门 */
   qint16 kingSafety() const;

@@ -51,6 +51,19 @@ constexpr quint8 HASH_ALPHA { 0 }, HASH_BETA { 1 }, HASH_PV { 2 };
 /** 空着裁剪标志 */
 constexpr bool NO_NULL { false };
 
+/** 判断两个位置是否同一行 */
+extern bool SAME_RANK[90][90];
+
+/** 判断是否需要检测被捉 */
+extern quint8 CHASE_INFO[14][14];
+
+/** 棋子的flag */
+constexpr quint16 CHESS_FLAG[14] {
+    1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4,
+    1 << 5, 1 << 6, 1 << 7, 1 << 8, 1 << 9,
+    1 << 10, 1 << 11, 1 << 12, 1 << 13
+};
+
 /** 士的形状 */
 // 缺士
 constexpr quint8 SHAPE_LEAK { 0 };

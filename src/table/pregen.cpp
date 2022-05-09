@@ -18,13 +18,43 @@ PreGen::PreGen() {
   // 默认走法初始化
   INVALID_MOVE.setMove(EMPTY, EMPTY, 0, 0);
 
+  // 同行判断初始化
+  for (quint8 index { 0 }; index < 90; ++index) {
+    quint8 start = index / 9 * 9;
+    quint8 stop = start + 9;
+    while (start < stop) SAME_RANK[index][start++] = true;
+  }
+  // 因为在车炮的判断中，车炮横向移动需要判断纵向，所以需要调转过来
+  for (auto & i : SAME_RANK) for (auto &j : i) j = not j;
+
+  // 初始化捉子信息 0代表不是捉，1代表是捉，2代表需要被捉子无根，3代表需要过河且被抓子无根
+  for (const auto &side : { RED, BLACK }) {
+    quint8 oppSide = side ^ OPP_SIDE;
+    // 车抓无根炮、马、过河兵
+    CHASE_INFO[ROOK + side][CANNON + oppSide] = 2;
+    CHASE_INFO[ROOK + side][KNIGHT + oppSide] = 2;
+    CHASE_INFO[ROOK + side][PAWN + oppSide] = 3;
+
+    // 炮抓车
+    CHASE_INFO[CANNON + side][ROOK + oppSide] = 1;
+    // 炮抓无根马、过河兵
+    CHASE_INFO[CANNON + side][KNIGHT + oppSide] = 2;
+    CHASE_INFO[CANNON + side][PAWN + oppSide] = 3;
+
+    // 马抓车
+    CHASE_INFO[KNIGHT + side][ROOK + oppSide] = 1;
+    // 马抓无根炮、过河兵
+    CHASE_INFO[KNIGHT + side][CANNON + oppSide] = 2;
+    CHASE_INFO[KNIGHT + side][PAWN + oppSide] = 3;
+  }
+
   // 生成占用位
   genRookOccupancy();
   genKnightOccupancy();
   genCannonOccupancy();
   genBishopOccupancy();
   genAttackByKnightOccupancy();
-  genCenterOccupancy();
+  genChaseOccupancy();
 
   // 计算PEXT移位
   genShiftRook();
@@ -32,7 +62,7 @@ PreGen::PreGen() {
   genShiftCannon();
   genShiftBishop();
   genShiftAttackByKnight();
-  genShiftCenter();
+  genShiftChase();
 
   // 生成走法
   genRook();
@@ -46,7 +76,7 @@ PreGen::PreGen() {
   genAttackByKnight();
   genAttackByRedPawn();
   genAttackByBlackPawn();
-  genCenter();
+  genChase();
   genSide();
 
   // 生成Zobrist值;
@@ -145,20 +175,32 @@ void PreGen::genAttackByKnightOccupancy() {
   }
 }
 
-void PreGen::genCenterOccupancy() {
-  Bitboard bitboard;
-  for (quint8 index { 22 }; index <= 85; index += 9) bitboard.setBit(index);
-  this->m_centerOccupancy[0][0] = bitboard.m_bitboard[0];
-  this->m_centerOccupancy[0][1] = bitboard.m_bitboard[1];
-  bitboard.clearAllBits();
+void PreGen::genChaseOccupancy() {
+  // 先生成行的占用位
+#pragma omp parallel for
+  for (quint8 index = 0; index < 90; ++index) {
+    Bitboard bitboard;
+    quint8 start = index / 9 * 9;
+    quint8 stop = start + 9;
+    while (start < stop) bitboard.setBit(start++);
+    bitboard.clearBit(index);
+    this->m_chaseOccupancy[index][1][0] = bitboard.m_bitboard[0];
+    this->m_chaseOccupancy[index][1][1] = bitboard.m_bitboard[1];
+  }
 
-  for (quint8 index { 4 }; index <= 67; index += 9) bitboard.setBit(index);
-  this->m_centerOccupancy[1][0] = bitboard.m_bitboard[0];
-  this->m_centerOccupancy[1][1] = bitboard.m_bitboard[1];
+  // 然后再生成列的占用位
+#pragma omp parallel for
+  for (quint8 index = 0; index < 90; ++index) {
+    Bitboard bitboard;
+    quint8 start = index % 9;
+    while (start < 90) bitboard.setBit(start), start += 9;
+    bitboard.clearBit(index);
+    this->m_chaseOccupancy[index][0][0] = bitboard.m_bitboard[0];
+    this->m_chaseOccupancy[index][0][1] = bitboard.m_bitboard[1];
+  }
 }
 
-Bitboard PreGen::getEnumOccupancy(const quint64 &occ0, const quint64 &occ1, quint32 count)
-{
+Bitboard PreGen::getEnumOccupancy(const quint64 &occ0, const quint64 &occ1, quint32 count) {
   Bitboard occupancy { };
   occupancy.m_bitboard[0] = occ0;
   occupancy.m_bitboard[1] = occ1;
@@ -214,10 +256,13 @@ void PreGen::genShiftAttackByKnight() {
   }
 }
 
-void PreGen::genShiftCenter() {
-  // 计算高位的位移
-  this->m_centerShift[0] = _mm_popcnt_u64(this->m_centerOccupancy[0][1]);
-  this->m_centerShift[1] = _mm_popcnt_u64(this->m_centerOccupancy[1][1]);
+void PreGen::genShiftChase() {
+#pragma omp parallel for
+  for (quint8 i = 0; i < 90; ++i) {
+    // 计算高位的位移
+    this->m_chaseShift[i][0] = _mm_popcnt_u64(this->m_chaseOccupancy[i][0][1]);
+    this->m_chaseShift[i][1] = _mm_popcnt_u64(this->m_chaseOccupancy[i][1][1]);
+  }
 }
 
 Bitboard PreGen::getPreRookAttack(qint8 pos, const Bitboard &occupancy) {
@@ -594,51 +639,82 @@ void PreGen::genAttackByBlackPawn() {
   }
 }
 
-void PreGen::genCenter() {
-  // 生成黑方的攻击窝心马的炮的位置
-  for (quint16 i { 0 }; i < (1 << 8); ++i) {
-    Bitboard occupancy { getEnumOccupancy(this->m_centerOccupancy[0][0],
-                                        this->m_centerOccupancy[0][1], i) };
-    qint8 rank = 13 / 9;
-    qint8 file = 13 % 9;
-    Bitboard bitboard;
-    // 向下走的情况
-    qint8 down = rank + 1;
-    while (down <= 9 and not occupancy[down * 9 + file]) ++down;
-    ++down;
-    while (down <= 9 and not occupancy[down * 9 + file]) ++down;
-    if (down <= 9) bitboard.setBit(down * 9 + file);
-    quint64 pextIndex = occupancy.getPextIndex(this->m_centerOccupancy[0][0],
-                                               this->m_centerOccupancy[0][1],
-                                               this->m_centerShift[0]);
-    this->m_center[0][pextIndex] = bitboard;
+void PreGen::genChase() {
+// 先生成列的捉位
+#pragma omp parallel for
+  for (quint8 index = 0; index < 90; ++index) {
+    for (quint16 i { 0 }; i < 1 << 9; ++i) {
+      Bitboard occupancy { getEnumOccupancy(this->m_chaseOccupancy[index][0][0],
+                                          this->m_chaseOccupancy[index][0][1], i) };
+
+      quint64 pextIndex = occupancy.getPextIndex(this->m_chaseOccupancy[index][0][0],
+                                                 this->m_chaseOccupancy[index][0][1],
+                                                 this->m_chaseShift[index][0]);
+
+      this->m_rookChase[index][0][pextIndex] = getRookAttack(index, occupancy) & occupancy;
+
+      // 炮的捉子另外处理
+      qint8 rank = index / 9;
+      qint8 file = index % 9;
+      Bitboard bitboard;
+      // 向上走的情况
+      qint8 up = rank - 1;
+      while (up >= 0 and not occupancy[up * 9 + file]) --up;
+      --up;
+      while (up >= 0 and not occupancy[up * 9 + file]) --up;
+      if (up >= 0) bitboard.setBit(up * 9 + file);
+      // 向下走的情况
+      qint8 down = rank + 1;
+      while (down <= 9 and not occupancy[down * 9 + file]) ++down;
+      ++down;
+      while (down <= 9 and not occupancy[down * 9 + file]) ++down;
+      if (down <= 9) bitboard.setBit(down * 9 + file);
+      this->m_cannonChase[index][0][pextIndex] = bitboard;
+    }
   }
-  // 生成红方的攻击窝心马的炮的位置
-  for (quint16 i { 0 }; i < (1 << 8); ++i) {
-    Bitboard occupancy { getEnumOccupancy(this->m_centerOccupancy[1][0],
-                                        this->m_centerOccupancy[1][1], i) };
-    qint8 rank = 76 / 9;
-    qint8 file = 76 % 9;
-    Bitboard bitboard;
-    // 向上走的情况
-    qint8 up = rank - 1;
-    while (up >= 0 and not occupancy[up * 9 + file]) --up;
-    --up;
-    while (up >= 0 and not occupancy[up * 9 + file]) --up;
-    if (up >= 0) bitboard.setBit(up * 9 + file);
-    quint64 pextIndex = occupancy.getPextIndex(this->m_centerOccupancy[1][0],
-                                               this->m_centerOccupancy[1][1],
-                                               this->m_centerShift[1]);
-    this->m_center[1][pextIndex] = bitboard;
+
+// 再生成行的捉位
+#pragma omp parallel for
+  for (quint8 index = 0; index < 90; ++index) {
+    for (quint16 i { 0 }; i < 1 << 9; ++i) {
+      Bitboard occupancy { getEnumOccupancy(this->m_chaseOccupancy[index][1][0],
+                                          this->m_chaseOccupancy[index][1][1], i) };
+
+      quint64 pextIndex = occupancy.getPextIndex(this->m_chaseOccupancy[index][1][0],
+                                                 this->m_chaseOccupancy[index][1][1],
+                                                 this->m_chaseShift[index][1]);
+
+      this->m_rookChase[index][1][pextIndex] = getRookAttack(index, occupancy) & occupancy;
+
+      // 炮的捉子另外处理
+      qint8 rank = index / 9;
+      qint8 file = index % 9;
+      Bitboard bitboard;
+      // 向左走的情况
+      qint8 left = file - 1;
+      while (left >= 0 and not occupancy[rank * 9 + left]) --left;
+      --left;
+      while (left >= 0 and not occupancy[rank * 9 + left]) --left;
+      if (left >= 0) bitboard.setBit(rank * 9 + left);
+      // 向右走的情况
+      qint8 right = file + 1;
+      while (right <= 8 and not occupancy[rank * 9 + right]) ++right;
+      ++right;
+      while (right <= 8 and not occupancy[rank * 9 + right]) ++right;
+      if (right <= 8) bitboard.setBit(rank * 9 + right);
+      this->m_cannonChase[index][1][pextIndex] = bitboard;
+    }
   }
 }
 
 void PreGen::genSide() {
   Bitboard bitboard;
-  for (quint8 index { 45 }; index < 90; ++index) bitboard.setBit(index);
+#pragma omp parallel for
+  for (quint8 index = 45; index < 90; ++index) bitboard.setBit(index);
   this->m_redSide = bitboard;
   bitboard.clearAllBits();
-  for (quint8 index { 0 }; index < 45; ++index) bitboard.setBit(index);
+#pragma omp parallel for
+  for (quint8 index = 0; index < 45; ++index) bitboard.setBit(index);
   this->m_blackSide = bitboard;
 }
 
@@ -730,18 +806,32 @@ Bitboard PreGen::getAttackByPawn(quint8 side, quint8 index) const {
   else return this->m_attackByRedPawn[index];
 }
 
-Bitboard PreGen::getCenter(bool red, const Bitboard &occupancy) const {
-  quint64 pextIndex { occupancy.getPextIndex(this->m_centerOccupancy[red][0],
-                                           this->m_centerOccupancy[red][1],
-                                           this->m_centerShift[red]) };
-  return this->m_center[red][pextIndex];
+Bitboard PreGen::getRookChase(quint8 index, bool rank, const Bitboard &occupancy) const {
+  quint64 pextIndex { occupancy.getPextIndex(this->m_chaseOccupancy[index][rank][0],
+                                           this->m_chaseOccupancy[index][rank][1],
+                                           this->m_chaseShift[index][rank]) };
+  return this->m_rookChase[index][rank][pextIndex];
+}
+
+Bitboard PreGen::getCannonChase(quint8 index, bool rank, const Bitboard &occupancy) const {
+  quint64 pextIndex { occupancy.getPextIndex(this->m_chaseOccupancy[index][rank][0],
+                                           this->m_chaseOccupancy[index][rank][1],
+                                           this->m_chaseShift[index][rank]) };
+  return this->m_cannonChase[index][rank][pextIndex];
+}
+
+Bitboard PreGen::getSide(quint8 side) const {
+  if (RED == side) return this->getRedSide();
+  else return this->getBlackSide();
 }
 
 Bitboard PreGen::getRedSide() const { return this->m_redSide; }
 
 Bitboard PreGen::getBlackSide() const { return this->m_blackSide; }
 
-quint64 PreGen::getZobrist(quint8 chess, quint8 index) { return this->m_zobrists[index][chess]; }
+quint64 PreGen::getZobrist(quint8 chess, quint8 index) const {
+  return this->m_zobrists[index][chess];
+}
 
-quint64 PreGen::getSideZobrist() { return this->m_sideZobrist; }
+quint64 PreGen::getSideZobrist() const { return this->m_sideZobrist; }
 }

@@ -17,8 +17,11 @@ QMap<quint8, QChar> FEN_REVERSE_MAP {
     { BLACK_PAWN, 'p' }, { BLACK_ADVISOR, 'a' }, { BLACK_KING, 'k' }
 };
 
-// 设置历史走法表的头部哨兵节点
-Chessboard::Chessboard() { this->m_historyMoves[0].setNullMove(true); }
+/** 判断两个位置是否同一行 */
+bool SAME_RANK[90][90];
+
+/** 判断是否需要检测被捉 */
+quint8 CHASE_INFO[14][14];
 
 void Chessboard::parseFen(const QString &fen) {
   // 先清空原有的棋盘信息
@@ -232,37 +235,40 @@ std::optional<qint16> Chessboard::getRepeatScore(quint8 distance) const {
    * 所以这个变量的初始值为假，代表这一步不是我方，因为走法从后往前遍历 */
   bool mySide { false };
 
-  // 我方是否将军，对方是否将军
-  bool myCheck { true }, oppCheck { true };
+  // 双方的长打标志
+  quint16 myFlag { 0x7fff }, oppFlag { 0x7fff };
 
   // 指向历史走法表的最后一项，往前遍历
   const HistoryMove *move = &this->m_historyMoves[this->m_historyMovesCount - 1];
   /* 必须保证步法有效，也就是没有到头部哨兵或者空步裁剪处
    * 如果遇到空步裁剪就不往下检测了，因为空步无法算作有效步
-   * 并且要求不是吃子步，因为吃子就打破长将了 */
+   * 并且要求不是吃子步，因为吃子就打破长打了 */
   while (not move->isNullMove() and not move->isCapture()) {
     if (mySide) {
-      // 如果是我方，更新我方将军信息
-      myCheck &= move->isChecked();
+      // 如果是我方，更新我方长打信息
+      myFlag &= move->getFlag();
 
       // 如果检测到局面与当前局面重复就返回对应的分数
       if (move->zobrist() == this->m_zobrist) {
-        // 我方长将返回负分，对方长将返回正分
-        qint16 score = (myCheck ? BAN_SCORE_LOSS + distance : 0) +
-                       (oppCheck ? BAN_SCORE_MATE - distance : 0);
+        myFlag = (myFlag & 0x3fff) == 0 ? myFlag : 0x3fff;
+        oppFlag = (oppFlag & 0x3fff) == 0 ? oppFlag : 0x3fff;
+        // 我方长打返回负分，对方长打返回正分
+        qint16 score { 0 };
+        if (myFlag > oppFlag) score = BAN_SCORE_LOSS + distance;
+        else if (myFlag < oppFlag) score = BAN_SCORE_MATE - distance;
 
-        /* 如果双方都长将或者双方都没有长将但是有重复局面就返回和棋的分数
+        /* 如果双方都长打或者双方都没有长打但是有重复局面就返回和棋的分数
          * 但无论如何都要使得和棋对于第一层的那一方来说是不利的，是负分
          * distance & 1 的作用是确定现在在那一层
          * 说明evaluate的那一层和第一层是同一方
          * 同一方返回负值，不同方返回正值，这样正值上到第一层就会变成负值 */
         if (score == 0) return distance & 1 ? DRAW_SCORE : -DRAW_SCORE;
-        // 有一方长将
+        // 有一方长打
         else return score;
       }
     }
     // 如果是对方，更新对方的将军信息
-    else oppCheck &= move->isChecked();
+    else oppFlag &= move->getFlag();
 
     // 更新选边信息
     mySide = not mySide;
@@ -307,9 +313,6 @@ bool Chessboard::makeMove(Move &move) {
   // 在历史走法表中记录这一个走法
   HistoryMove &historyMove { this->m_historyMoves[this->m_historyMovesCount++] };
 
-  // 清除空步信息
-  historyMove.setNullMove(false);
-
   // 记录现在的走法
   historyMove.setMove(move);
 
@@ -341,8 +344,9 @@ bool Chessboard::makeMove(Move &move) {
   // 换边
   this->m_side ^= OPP_SIDE;
 
-  // 补充对应的将军信息
-  historyMove.setCheck(isChecked());
+  // 补充对应的将军捉子信息
+  if (isChecked()) historyMove.setChecked();
+  else historyMove.setChase(this->getChase());
 
   // 走子成功
   return true;
@@ -380,10 +384,8 @@ void Chessboard::unMakeMove() {
 void Chessboard::makeNullMove() {
   // 获取历史走法表项，并将自增走法历史表的大小
   HistoryMove &move = this->m_historyMoves[this->m_historyMovesCount++];
-  // 保存本步棋是否将军对方的信息
-  move.setCheck(false);
   // 设置空步信息
-  move.setNullMove(true);
+  move.setNullMove();
   // 换边
   this->m_side ^= OPP_SIDE;
   // 计算新的Zobrist值
@@ -430,6 +432,50 @@ void Chessboard::undoMove(const Move &move) {
   // 恢复原来的位
   else this->m_occupancy.clearBit(move.to());
   this->m_occupancy.setBit(move.from());
+}
+
+quint16 Chessboard::getChase() {
+  quint8 side = this->m_side ^ OPP_SIDE;
+  
+  const HistoryMove &move { this->getLastMove() };
+
+  quint16 flag { 0 };
+  
+  // 首先获取被抓的棋子
+  Bitboard chase { RED == side ? this->m_blackOccupancy : this->m_redOccupancy };
+  switch(move.chess() - side) {
+  case ROOK:
+    chase &= PRE_GEN.getRookChase(move.to(), SAME_RANK[move.from()][move.to()], m_occupancy);
+    break;
+  case CANNON:
+    chase &= PRE_GEN.getCannonChase(move.to(), SAME_RANK[move.from()][move.to()], m_occupancy);
+    break;
+  case KNIGHT:
+    chase &= PRE_GEN.getKnightAttack(move.to(), this->m_occupancy);
+    break;
+  default:
+    // 其余棋子不予考虑
+    return 0;
+  }
+
+  // 接下来查表决定是否是捉
+  quint8 index;
+  while ((index = chase.getLastBitIndex()) < 90) {
+    chase.clearBit(index);
+    quint8 victim { this->m_helperBoard[index] };
+    switch (CHASE_INFO[move.chess()][victim]) {
+    case 1: flag |= CHESS_FLAG[victim]; break;
+    case 2: if (not this->isProtected(index, side)) flag |= CHESS_FLAG[victim]; break;
+    case 3:
+      if (PRE_GEN.getSide(side)[index] and not this->isProtected(index, side)) {
+        flag |= CHESS_FLAG[victim];
+      }
+    default:
+      break;
+    }
+  }
+
+  return flag;
 }
 
 quint8 Chessboard::side() const { return this->m_side; }

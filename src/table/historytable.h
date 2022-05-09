@@ -20,6 +20,6 @@ public:
   void updateValue(const Move &move, quint8 depth);
 
 private:
-  quint64 m_historyValues[32768] { 0 };
+  quint64 m_historyValues[14][90] { };
 };
 }

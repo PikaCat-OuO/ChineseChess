@@ -445,10 +445,10 @@ void Dialog::on_ComputerHard_currentIndexChanged(int index) {
     this->m_chessEngine->setSearchTime(3000);
     break;
   case 1:
-    this->m_chessEngine->setSearchTime(10000);
+    this->m_chessEngine->setSearchTime(6000);
     break;
   default:
-    this->m_chessEngine->setSearchTime(30000);
+    this->m_chessEngine->setSearchTime(9000);
   }
 }
 
@@ -648,16 +648,16 @@ void Dialog::computerMove() {
       Move move;
       move.setMove(fromRow * 9 + fromCol, toRow * 9 + toCol);
       this->m_chessEngine->makeMove(move);
-      // 如果走云端走法会产生重复局面，只有对方长将军才采纳云端走法
+      // 如果走云端走法会产生重复局面，只有对方长打才采纳云端走法
       auto repeatScore { this->m_chessEngine->getRepeatScore() };
       if (not repeatScore.has_value() or repeatScore.value() == BAN_SCORE_MATE) {
         emit threadOK(step);
         return;
       }
-      // 该步会导致自己长将军，不能走，撤回
+      // 该步会导致自己长打，不能走，撤回
       this->m_chessEngine->unMakeMove();
     }
-    // 云开局库无对应走法或者开局库走法导致我方长将军，由引擎出步
+    // 云开局库无对应走法或者开局库走法导致我方长打，由引擎出步
     this->m_chessEngine->search();
     qint16 score { this->m_chessEngine->bestScore() };
     // 显示MetaInfo
@@ -691,10 +691,10 @@ void Dialog::computerMove() {
       ui->ComputerScore->setText(QString::number((score - LOSS_SCORE) / 2) + "步落败");
     } else if ((score > BAN_SCORE_LOSS and score < LOST_SCORE) or
                (score > WIN_SCORE and score < BAN_SCORE_MATE)) {
-      // 如果产生了长将局面
+      // 如果产生了长打局面
       // 显示MetaInfo
       ui->ComputerScoreBox->setTitle("局面状态");
-      ui->ComputerScore->setText("长将局面");
+      ui->ComputerScore->setText("长打局面");
     } else {
       ui->ComputerScore->setText("[" + QString::number(this->m_chessEngine->currentDepth())
                                  + "层]" + QString::number(score));

@@ -21,7 +21,7 @@ qint16 HashTable::probeHash(quint8 distance, quint64 zobrist,
   // 将走法保存下来
   hashMove = hashItem.m_move;
   if (hashItem.m_score > WIN_SCORE) {
-    // 有可能会导致搜索的不稳定性，因为这个长将的分数可能来自于另外一条不同的搜索分支
+    // 有可能会导致搜索的不稳定性，因为这个长打的分数可能来自于另外一条不同的搜索分支
     if (hashItem.m_score < BAN_SCORE_MATE) return LOSS_SCORE;
     // 真的赢了
     isMate = true;

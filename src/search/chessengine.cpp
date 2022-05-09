@@ -20,7 +20,9 @@ void ChessEngine::search() {
   // 多线程搜索，每个线程一个搜索实例，只有置换表是共享的
   QVector<SearchInstance> searchInstances;
   // 初始化线程局面
-  for (quint8 threadID { 0 }; threadID < std::thread::hardware_concurrency() / 2; ++threadID) {
+  for (quint8 threadID { 0 };
+       threadID < qMax(quint8(1), std::thread::hardware_concurrency() / 2);
+       ++threadID) {
     searchInstances.emplaceBack(this->m_chessboard, this->m_hashTable);
   }
 

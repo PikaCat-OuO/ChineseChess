@@ -21,7 +21,7 @@ Move SearchMachine::getNextMove() {
     this->m_phase = PHASE_CAPTURE;
     // 生成吃子走法，使用MVVLVA对其进行排序
     this->m_totalMoves = this->m_chessboard.genCapMoves(this->m_moveList);
-    std::sort(std::begin(this->m_moveList), std::begin(this->m_moveList) + this->m_totalMoves);
+    std::sort(this->m_moveList, this->m_moveList + this->m_totalMoves);
     // 直接下一步
     [[fallthrough]];
 
@@ -40,8 +40,7 @@ Move SearchMachine::getNextMove() {
     // 指明下一个阶段
     this->m_phase = PHASE_KILLER2;
     // 确保这一个杀手走法不是默认走法，不是置换表走法，并且要确认是否是合法的步
-    if (this->m_killerMove1.isVaild() and
-        this->m_killerMove1 not_eq this->m_hashMove and
+    if (this->m_killerMove1.isVaild() and this->m_killerMove1 not_eq this->m_hashMove and
         this->m_chessboard.isLegalMove(this->m_killerMove1)) {
       return this->m_killerMove1;
     }
@@ -52,8 +51,7 @@ Move SearchMachine::getNextMove() {
     // 指明下一个阶段
     this->m_phase = PHASE_NOT_CAPTURE_GEN;
     // 确保这一个杀手走法不是默认走法，不是置换表走法
-    if (this->m_killerMove2.isVaild() and
-        this->m_killerMove2 not_eq this->m_hashMove and
+    if (this->m_killerMove2.isVaild() and this->m_killerMove2 not_eq this->m_hashMove and
         this->m_chessboard.isLegalMove(this->m_killerMove2)) {
       return this->m_killerMove2;
     }
@@ -66,8 +64,7 @@ Move SearchMachine::getNextMove() {
     // 生成非吃子的走法并使用历史表对其进行排序
     this->m_totalMoves += this->m_chessboard.genNonCapMoves(
         this->m_moveList + this->m_totalMoves);
-    std::sort(std::begin(this->m_moveList) + this->m_nowMove,
-              std::begin(this->m_moveList) + this->m_totalMoves);
+    std::sort(this->m_moveList + this->m_nowMove, this->m_moveList + this->m_totalMoves);
     // 直接下一步
     [[fallthrough]];
 
@@ -75,15 +72,13 @@ Move SearchMachine::getNextMove() {
     // 遍历走法，逐个检查并返回
     while (this->m_nowMove < this->m_totalMoves) {
       const Move &move { this->m_moveList[this->m_nowMove++] };
-      if (move not_eq this->m_hashMove and
-          move not_eq this->m_killerMove1 and
-          move not_eq this->m_killerMove2) { return move; }
+      if (move not_eq this->m_hashMove and move not_eq this->m_killerMove1 and
+          move not_eq this->m_killerMove2) return move;
     }
     // 如果没有了就直接返回
     [[fallthrough]];
 
-  default:
-    return INVALID_MOVE;
+  default: return INVALID_MOVE;
   }
 }
 }

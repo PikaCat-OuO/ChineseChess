@@ -13,7 +13,7 @@ public:
   void genCannonOccupancy();
   void genBishopOccupancy();
   void genAttackByKnightOccupancy();
-  void genCenterOccupancy();
+  void genChaseOccupancy();
   Bitboard getEnumOccupancy(const quint64 &occ0, const quint64 &occ1, quint32 count);
 
   void genShiftRook();
@@ -21,7 +21,7 @@ public:
   void genShiftCannon();
   void genShiftBishop();
   void genShiftAttackByKnight();
-  void genShiftCenter();
+  void genShiftChase();
 
   Bitboard getPreRookAttack(qint8 pos, const Bitboard &occupancy);
   Bitboard getPreKnightAttack(qint8 pos, const Bitboard &occupancy);
@@ -39,7 +39,7 @@ public:
   void genAttackByKnight();
   void genAttackByRedPawn();
   void genAttackByBlackPawn();
-  void genCenter();
+  void genChase();
   void genSide();
 
   void genZobristValues();
@@ -61,18 +61,20 @@ public:
   /** 获取被兵攻击的位置 */
   Bitboard getAttackByPawn(quint8 side, quint8 index) const;
 
-  /** 获取双方的炮打窝心的位置 */
-  Bitboard getCenter(bool red, const Bitboard &occupancy) const;
+  /** 获取车和炮的捉的位置 */
+  Bitboard getRookChase(quint8 index, bool rank, const Bitboard &occupancy) const;
+  Bitboard getCannonChase(quint8 index, bool rank, const Bitboard &occupancy) const;
 
   /** 获取选边对应的位置 */
+  Bitboard getSide(quint8 side) const;
   Bitboard getRedSide() const;
   Bitboard getBlackSide() const;
 
   /** 获取某个棋子在某个位置上的Zobrist值 */
-  quint64 getZobrist(quint8 chess, quint8 index);
+  quint64 getZobrist(quint8 chess, quint8 index) const;
 
   /** 获取选边的Zobrist值 */
-  quint64 getSideZobrist();
+  quint64 getSideZobrist() const;
 
 private:
   /** 所有滑动棋子的占用位，用于走法生成 */
@@ -81,8 +83,8 @@ private:
   quint64 m_cannonOccupancy[90][2];
   quint64 m_bishopOccupancy[90][2];
   quint64 m_attackByKnightOccupancy[90][2];
-  /** 炮打窝心的占用位 */
-  quint64 m_centerOccupancy[2][2];
+  /** 车和炮抓子的占用位 */
+  quint64 m_chaseOccupancy[90][2][2];
 
   /** 所有滑动棋子的PEXT移位，用于走法生成 */
   quint8 m_rookShift[90];
@@ -91,8 +93,8 @@ private:
   quint8 m_bishopShift[90];
   /** 被马攻击的PEXT移位 */
   quint8 m_attackByKnightShift[90];
-  /** 炮打窝心的PEXT移位 */
-  quint8 m_centerShift[2];
+  /** 车和炮抓子的PEXT移位 */
+  quint8 m_chaseShift[90][2];
 
   /** 所有棋子的攻击位，用于走法生成 */
   Bitboard m_rookAttack[90][1 << 15];
@@ -108,8 +110,9 @@ private:
   /** 被兵攻击的位置 */
   Bitboard m_attackByRedPawn[90];
   Bitboard m_attackByBlackPawn[90];
-  /** 用于判断炮打窝心的位置 */
-  Bitboard m_center[2][1 << 8];
+  /** 用于判断车和炮抓的子 */
+  Bitboard m_cannonChase[90][2][1 << 9];
+  Bitboard m_rookChase[90][2][1 << 9];
 
   /** 双方的那边 */
   Bitboard m_redSide;

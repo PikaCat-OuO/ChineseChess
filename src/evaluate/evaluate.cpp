@@ -128,7 +128,7 @@ qint16 Chessboard::kingSafety_helper(quint8 side, quint8 center,
              this->m_bitboards[CANNON + oppSide]).getLastBitIndex();
     if (index < 90) safety -= BOTTOM_THREAT_PENALTY[index];
     // 计算中炮威胁
-    index = (PRE_GEN.getCenter(red, this->m_occupancy) &
+    index = (PRE_GEN.getCannonChase(center, false, this->m_occupancy) &
              this->m_bitboards[CANNON + oppSide]).getLastBitIndex();
     if (index < 90) {
       safety -= CENTER_THREAT_PENALTY[red][index];
@@ -152,7 +152,7 @@ qint16 Chessboard::kingSafety_helper(quint8 side, quint8 center,
     if (index < 90) safety -= HOLLOW_THREAT_PENALTY[red][index];
     // 如果不存在空头炮，就计算是否存在炮镇窝心马
     else if (KNIGHT + side == this->m_helperBoard[center]) {
-      index = (PRE_GEN.getCenter(red, this->m_occupancy) &
+      index = (PRE_GEN.getCannonChase(center, false, this->m_occupancy) &
                this->m_bitboards[CANNON + oppSide]).getLastBitIndex();
       if (index < 90) safety -= CENTER_KNIGHT_PENALTY[red][index];
     }
