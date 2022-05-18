@@ -1,6 +1,9 @@
 #include "searchinstance.h"
 
 namespace PikaChess {
+/** 搜索的衰减层数 [是否是CUT Node][第几层][第几个走法] */
+quint8 REDUCTIONS[2][64][128];
+
 SearchInstance::SearchInstance(const Chessboard &chessboard, HashTable &hashTable)
     : m_chessboard { chessboard }, m_hashTable { hashTable } { }
 
@@ -14,6 +17,7 @@ void SearchInstance::searchRoot(const qint8 depth) {
 
   qint16 bestScore { LOSS_SCORE };
   // 搜索计数器
+  quint8 moveCount { 0 };
   this->m_legalMove = 0;
   // 是否被对方将军
   bool notInCheck { not this->m_chessboard.getLastMove().isChecked() };
@@ -22,33 +26,25 @@ void SearchInstance::searchRoot(const qint8 depth) {
   while ((move = search.getNextMove()).isVaild()) {
     // 如果被将军了就不搜索这一步
     if (makeMove(move)) {
+      ++moveCount;
       // 不然就获得评分并更新最好的分数
       qint16 tryScore;
       const HistoryMove &lastMove { this->m_chessboard.getLastMove() };
       // 将军延伸，如果将军了对方就多搜几步
       qint8 newDepth = lastMove.isChecked() ? depth : depth - 1;
       // PVS
-      if (this->m_legalMove == 0) {
+      if (moveCount == 1) {
         tryScore = -searchFull(LOSS_SCORE, MATE_SCORE, newDepth, NO_NULL);
       } else {
         // 对于延迟走法的处理，要求没有被将军，没有将军别人，该步不是吃子步
-        tryScore = bestScore + 1;
-        if (notInCheck and newDepth not_eq depth and not lastMove.isCapture()) {
-          // LMR，在层数大于等于3时使用
-          if (depth >= 3) {
-            qint8 reduce = 1;
-            // 靠后的走法采用更加激进的裁剪策略
-            if (this->m_legalMove >= 6) reduce = depth / 3;
-            tryScore = -searchFull(-bestScore - 1, -bestScore, newDepth - reduce);
-          }
-          // LMP，在层数小于3时使用，要求已经搜索了一定数量的走法
-          else if (this->m_legalMove >= 3 * depth) tryScore = LOSS_SCORE;
+        if (depth >= 3 and notInCheck and newDepth not_eq depth and not lastMove.isCapture()) {
+          tryScore = -searchFull(-bestScore - 1, -bestScore,
+                                 newDepth - REDUCTIONS[false][depth][moveCount]);
         }
+        // 如果不满足条件则不衰减层数
+        else tryScore = -searchFull(-bestScore - 1, -bestScore, newDepth);
         if (tryScore > bestScore) {
-          tryScore = -searchFull(-bestScore - 1, -bestScore, newDepth);
-          if (tryScore > bestScore) {
-            tryScore = -searchFull(LOSS_SCORE, -bestScore, newDepth, NO_NULL);
-          }
+          tryScore = -searchFull(LOSS_SCORE, -bestScore, newDepth, NO_NULL);
         }
       }
       // 撤销走棋
@@ -86,23 +82,6 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   // 如果有重复的情况，直接返回分数
   if (repeatScore.has_value()) return repeatScore.value();
 
-  // 获得静态评分
-  qint16 staticEval { this->m_chessboard.staticScore() };
-
-  // 不是PV节点
-  bool notPVNode { beta - alpha <= 1 };
-
-  bool notInCheck { not this->m_chessboard.getLastMove().isChecked() };
-
-  // 静态评分裁剪
-  if (depth < 3 and notPVNode and notInCheck and beta - 1 > BAN_SCORE_LOSS) {
-    // 裁剪的边界
-    int evalMargin = 40 * depth;
-
-    // 如果放弃一定的分值还是超出边界就返回
-    if (staticEval - evalMargin >= beta) return staticEval - evalMargin;
-  }
-
   // 当前走法
   Move move;
   // 尝试置换表裁剪，并得到置换表走法
@@ -110,52 +89,70 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   // 置换表裁剪成功
   if (tryScore > LOSS_SCORE) return tryScore;
 
-  /* 进行空步裁剪，不能连着走两步空步，被将军时不能走空步
-     残局走空步，需要进行检验，不然会有特别大的风险
-     根节点的Beta值是"MATE_SCORE"，所以不可能发生空步裁剪 */
-  if (notPVNode and nullOk and notInCheck) {
-    // 走一步空步
-    makeNullMove();
-    // 获得评分，深度减掉空着裁剪推荐的两层，然后本身走了一步空步，还要再减掉一层
-    tryScore = -searchFull(-beta, 1 - beta, depth - 3, NO_NULL);
-    // 撤销空步
-    unMakeNullMove();
-    // 如果足够好就可以发生截断，残局阶段要注意进行校验
-    if (tryScore >= beta and (this->m_chessboard.isNotEndgame() or
-                              searchFull(beta - 1, beta, depth - 2, NO_NULL) >= beta)) {
-      return tryScore;
+  // 不被将军时可以进行一些裁剪
+  bool notInCheck { not this->m_chessboard.getLastMove().isChecked() };
+  bool notPVNode { beta - alpha <= 1 };
+  if (notInCheck) {
+    qint16 staticEval { this->m_chessboard.staticScore() };
+
+    // 无用裁剪
+    if (depth < 7 and abs(beta) < WIN_SCORE) {
+      // 裁剪的边界
+      quint8 futilityMargin = 40 * depth;
+
+      // 如果放弃一定的分值还是超出边界就返回
+      if (staticEval - futilityMargin >= beta) return staticEval - futilityMargin;
     }
-  }
 
-  // 剃刀裁剪
-  if (notPVNode and notInCheck and depth <= 3) {
-    // 给静态评价加上第一个边界
-    tryScore = staticEval + 40;
+    // 适用于非PV节点的前期裁剪
+    if (notPVNode) {
+      // 剃刀裁剪
+      if (depth <= 3) {
+        // 给静态评价加上第一个边界
+        tryScore = staticEval + 40;
 
-    // 如果超出边界
-    if (tryScore < beta) {
-      // 第一层直接返回评分和静态搜索的最大值
-      if (depth == 1) return std::max(tryScore, searchQuiescence(alpha, beta));
+        // 如果超出边界
+        if (tryScore < beta) {
+          // 第一层直接返回评分和静态搜索的最大值
+          if (depth == 1) return std::max(tryScore, searchQuiescence(alpha, beta));
 
-      // 其余情况加上第二个边界
-      tryScore += 60;
+          // 其余情况加上第二个边界
+          tryScore += 60;
 
-      // 如果还是超出边界
-      if (tryScore < beta and depth <= 2) {
-        // 获得静态评分
-        qint16 newScore { searchQuiescence(alpha, beta) };
+          // 如果还是超出边界
+          if (tryScore < beta and depth <= 2) {
+            // 获得静态评分
+            qint16 newScore { searchQuiescence(alpha, beta) };
 
-        // 如果静态评分也超出边界，返回评分和静态搜索的最大值
-        if (newScore < beta) return std::max(tryScore, newScore);
+            // 如果静态评分也超出边界，返回评分和静态搜索的最大值
+            if (newScore < beta) return std::max(tryScore, newScore);
+          }
+        }
+      }
+
+      /* 进行空步裁剪，不能连着走两步空步，被将军时不能走空步，层数较大时，需要进行检验
+         根节点的Beta值是"MATE_SCORE"，所以不可能发生空步裁剪 */
+      if (nullOk) {
+        // 走一步空步
+        makeNullMove();
+        // 获得评分，深度减掉空着裁剪推荐的两层，然后本身走了一步空步，还要再减掉一层
+        tryScore = -searchFull(-beta, 1 - beta, depth - 3, NO_NULL);
+        // 撤销空步
+        unMakeNullMove();
+        // 如果足够好就可以发生截断，层数较大时要注意进行校验
+        if (tryScore >= beta and ((depth < 12 and abs(beta) < WIN_SCORE) or
+                                  searchFull(beta - 1, beta, depth - 2, NO_NULL) >= beta)) {
+          return tryScore;
+        }
       }
     }
-  }
 
-  // 内部迭代加深启发，只在PV节点上使用
-  if (beta - alpha > 1 and depth > 2 and move == INVALID_MOVE) {
-    tryScore = searchFull(alpha, beta, depth >> 1, NO_NULL);
-    if (tryScore <= alpha) tryScore = searchFull(LOSS_SCORE, beta, depth >> 1, NO_NULL);
-    move = this->m_iidMove;
+    // 适用于PV节点的内部迭代加深启发
+    else if (depth > 2 and move == INVALID_MOVE) {
+      tryScore = searchFull(alpha, beta, depth >> 1, NO_NULL);
+      if (tryScore <= alpha) tryScore = searchFull(LOSS_SCORE, beta, depth >> 1, NO_NULL);
+      move = this->m_iidMove;
+    }
   }
 
   // 搜索有限状态机
@@ -169,37 +166,28 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   Move bestMove { };
 
   // 搜索计数器
-  quint8 moveSearched { 0 };
+  quint8 moveCount { 0 };
   // 遍历所有走法
   while ((move = search.getNextMove()).isVaild()) {
     // 如果被将军了就不搜索这一步
     if (makeMove(move)) {
+      ++moveCount;
       // 不然就获得评分并更新最好的分数
       const HistoryMove &lastMove { this->m_chessboard.getLastMove() };
       // 将军延伸，如果将军了对方就多搜几步
       qint8 newDepth = lastMove.isChecked() ? depth : depth - 1;
-      // PVS
-      tryScore = alpha + 1;
-      // 对于延迟走法的处理，要求没有被将军，没有将军别人，该步不是吃子步
-      if (notInCheck and newDepth not_eq depth and not lastMove.isCapture() and moveSearched) {
-        // LMR，在层数大于等于3时使用
-        if (depth >= 3) {
-          qint8 reduce = 1;
-          if (moveSearched >= 6) reduce = depth / 3;
-          tryScore = -searchFull(-alpha - 1, -alpha, newDepth - reduce);
-        }
-        // LMP，在层数小于3时使用，要求已经搜索了一定数量的走法
-        else if (moveSearched >= 3 * depth) tryScore = LOSS_SCORE;
+
+      // PVS，对于延迟走法的处理，要求没有被将军，没有将军别人，该步不是吃子步
+      if (depth >= 3 and notInCheck and newDepth not_eq depth and not lastMove.isCapture()) {
+        tryScore = -searchFull(-alpha - 1, -alpha,
+                               newDepth - REDUCTIONS[notPVNode][depth][moveCount]);
       }
-      if (tryScore > alpha) {
-        tryScore = -searchFull(-alpha - 1, -alpha, newDepth);
-        if (tryScore > alpha and tryScore < beta) {
-          tryScore = -searchFull(-beta, -alpha, newDepth);
-        }
-      }
+      // 如果不满足条件就不衰减层数
+      else tryScore = -searchFull(-alpha - 1, -alpha, newDepth);
+      if (tryScore > alpha and tryScore < beta) tryScore = -searchFull(-beta, -alpha, newDepth);
+
       // 撤销走棋
       unMakeMove();
-      if (tryScore > LOST_SCORE) ++moveSearched;
       if (tryScore > bestScore) {
         // 找到最佳走法(但不能确定是Alpha、PV还是Beta走法)
         bestScore = tryScore;

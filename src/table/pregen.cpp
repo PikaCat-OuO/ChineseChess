@@ -8,6 +8,9 @@ extern __m128i BITBOARD_MASK[90];
 /** 位棋盘反掩码 */
 extern __m128i BITBOARD_NOT_MASK[90];
 
+/** 延迟走法衰减的衰减层数 */
+extern quint8 REDUCTIONS[2][64][128];
+
 PreGen::PreGen() {
   // 位棋盘掩码初始化
   for (quint8 index { 0 }; index < 90; ++index) {
@@ -81,6 +84,16 @@ PreGen::PreGen() {
 
   // 生成Zobrist值;
   genZobristValues();
+
+  // 生成LMR的衰减层数数据
+  for (quint8 depth = 1; depth < 64; ++depth) {
+    for (quint8 moveCount = 1; moveCount < 128; ++moveCount) {
+      double reduce = log(depth) * log(moveCount) / 1.95;
+      REDUCTIONS[true][depth][moveCount] = int(std::round(reduce));
+      REDUCTIONS[false][depth][moveCount] =
+          std::max(REDUCTIONS[true][depth][moveCount] - 1, 0);
+    }
+  }
 }
 
 void PreGen::genRookOccupancy() {

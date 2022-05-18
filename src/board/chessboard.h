@@ -44,9 +44,6 @@ public:
    */
   bool isLegalMove(Move &move) const;
 
-  /** 判断当前是否属于残局 */
-  bool isNotEndgame() const;
-
   /**
    * @brief 获得一个局面的重复情况
    * @param distance 距离根节点的深度

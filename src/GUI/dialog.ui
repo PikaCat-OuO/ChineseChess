@@ -15,6 +15,7 @@
   </property>
   <property name="font">
    <font>
+    <family>Microsoft YaHei Light</family>
     <pointsize>-1</pointsize>
    </font>
   </property>
@@ -38,6 +39,7 @@
    </property>
    <property name="font">
     <font>
+     <family>Microsoft YaHei Light</family>
      <pointsize>-1</pointsize>
     </font>
    </property>
@@ -773,9 +775,9 @@ color:transparent;</string>
     <widget class="QLabel" name="ComputerScore">
      <property name="geometry">
       <rect>
-       <x>10</x>
+       <x>0</x>
        <y>20</y>
-       <width>181</width>
+       <width>201</width>
        <height>61</height>
       </rect>
      </property>

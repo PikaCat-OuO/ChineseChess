@@ -650,7 +650,7 @@ void Dialog::computerMove() {
       this->m_chessEngine->makeMove(move);
       // 如果走云端走法会产生重复局面，只有对方长打才采纳云端走法
       auto repeatScore { this->m_chessEngine->getRepeatScore() };
-      if (not repeatScore.has_value() or repeatScore.value() == BAN_SCORE_MATE) {
+      if (not repeatScore.has_value() or repeatScore.value() == BAN_SCORE_LOSS) {
         emit threadOK(step);
         return;
       }

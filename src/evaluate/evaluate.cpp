@@ -139,9 +139,8 @@ qint16 Chessboard::kingSafety_helper(quint8 side, quint8 center,
         safety -= 20;
       }
       // 如果车在底线保护将，给予更大的罚分
-      index = (PRE_GEN.getRookAttack(middle, this->m_occupancy) &
-               this->m_bitboards[ROOK + side]).getLastBitIndex();
-      if (index < 90) safety -= 80;
+      if (PRE_GEN.getRookAttack(middle, this->m_occupancy) &
+          this->m_bitboards[ROOK + side]) safety -= 80;
     }
     break;
 
