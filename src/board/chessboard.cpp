@@ -29,6 +29,7 @@ void Chessboard::parseFen(const QString &fen) {
   this->m_redOccupancy.clearAllBits();
   this->m_blackOccupancy.clearAllBits();
   this->m_occupancy.clearAllBits();
+  this->m_piece = 0;
   memset(this->m_helperBoard, EMPTY, sizeof(this->m_helperBoard));
 
   // 分割为棋盘和选边两部分
@@ -42,6 +43,7 @@ void Chessboard::parseFen(const QString &fen) {
     case '/': continue;
     default:
       if (ch.isNumber()) { count += (ch.toLatin1() - '0'); continue; }
+      ++this->m_piece;
       this->m_bitboards[FEN_MAP[ch]].setBit(count);
       this->m_helperBoard[count] = FEN_MAP[ch];
       break;
@@ -59,8 +61,21 @@ void Chessboard::parseFen(const QString &fen) {
   // 重置步数计数器
   this->m_historyMovesCount = 1;
 
-  // 调用预计算函数
-  this->preCalculateScores();
+  // 刷新双方的初始累加器
+  Accumulator &acc { this->getLastMove().m_acc };
+  qint32 featureIndexes[33];
+
+  // 刷新对方的累加器
+  this->m_side ^= OPP_SIDE;
+  acc.kingPos[this->m_side] = this->m_bitboards[KING + this->m_side].getLastBitIndex();
+  this->getAllFeatures(featureIndexes);
+  featureTransformer->refreshAccumulator(acc, this->m_side, featureIndexes);
+
+  // 刷新自己的累加器
+  this->m_side ^= OPP_SIDE;
+  acc.kingPos[this->m_side] = this->m_bitboards[KING + this->m_side].getLastBitIndex();
+  this->getAllFeatures(featureIndexes);
+  featureTransformer->refreshAccumulator(acc, this->m_side, featureIndexes);
 }
 
 QString Chessboard::getFen() const {
@@ -160,6 +175,23 @@ quint8 Chessboard::genNonCapMoves(ValuedMove *moveList) const {
   return total;
 }
 
+void Chessboard::getAllFeatures(qint32 *featureIndexes) const {
+  // 获取当前走子方将的位置
+  quint8 kingPos { this->getLastMove().m_acc.kingPos[this->m_side] };
+
+  // 遍历所有位置，提取特征
+  Bitboard occupancy { this->m_occupancy };
+
+  quint8 index;
+  while ((index = occupancy.getLastBitIndex()) < 90) {
+    occupancy.clearBit(index);
+    *featureIndexes++ = FeatureIndex(this->m_side, index, this->m_helperBoard[index], kingPos);
+  }
+
+  // 结束标志
+  *featureIndexes = -1;
+}
+
 bool Chessboard::isChecked() const {
   // 获取对方的选边
   quint8 oppSide = this->m_side ^ OPP_SIDE;
@@ -247,19 +279,11 @@ std::optional<qint16> Chessboard::getRepeatScore(quint8 distance) const {
       if (move->zobrist() == this->m_zobrist) {
         myFlag = (myFlag & 0x3fff) == 0 ? myFlag : 0x3fff;
         oppFlag = (oppFlag & 0x3fff) == 0 ? oppFlag : 0x3fff;
-        // 我方长打返回负分，对方长打返回正分
-        qint16 score { 0 };
-        if (myFlag > oppFlag) score = BAN_SCORE_LOSS + distance;
-        else if (myFlag < oppFlag) score = BAN_SCORE_MATE - distance;
 
-        /* 如果双方都长打或者双方都没有长打但是有重复局面就返回和棋的分数
-         * 但无论如何都要使得和棋对于第一层的那一方来说是不利的，是负分
-         * distance & 1 的作用是确定现在在那一层
-         * 说明evaluate的那一层和第一层是同一方
-         * 同一方返回负值，不同方返回正值，这样正值上到第一层就会变成负值 */
-        if (score == 0) return distance & 1 ? DRAW_SCORE : -DRAW_SCORE;
-        // 有一方长打
-        else return score;
+        // 我方长打返回负分，对方长打返回正分，双方长打返回0分
+        if (myFlag > oppFlag) return BAN_SCORE_LOSS + distance;
+        else if (myFlag < oppFlag) return BAN_SCORE_MATE - distance;
+        else return 0;
       }
     }
     // 如果是对方，更新对方的将军信息
@@ -282,6 +306,8 @@ bool Chessboard::makeMove(Move &move) {
     if (RED == this->m_side) this->m_blackOccupancy.clearBit(move.to());
     else this->m_redOccupancy.clearBit(move.to());
     this->m_bitboards[move.victim()].clearBit(move.to());
+    // 存活的子少了一个
+    --this->m_piece;
     // 注意，这里不用移除occupancy中move.to()位，因为攻击的棋子会移动过来
   }
 
@@ -305,6 +331,9 @@ bool Chessboard::makeMove(Move &move) {
   this->m_helperBoard[move.from()] = EMPTY;
   this->m_helperBoard[move.to()] = move.chess();
 
+  // 获取上一个累加器
+  const Accumulator &lastAcc { this->getLastMove().m_acc };
+
   // 在历史走法表中记录这一个走法
   HistoryMove &historyMove { this->m_historyMoves[this->m_historyMovesCount++] };
 
@@ -318,26 +347,24 @@ bool Chessboard::makeMove(Move &move) {
   this->m_zobrist ^= PRE_GEN.getSideZobrist();
   this->m_zobrist ^= PRE_GEN.getZobrist(move.chess(), move.from());
   this->m_zobrist ^= PRE_GEN.getZobrist(move.chess(), move.to());
+  // 吃子步需要把被吃的子的zobrist去除
+  if (move.isCapture()) this->m_zobrist ^= PRE_GEN.getZobrist(move.victim(), move.to());
 
-  if (move.isCapture()) {
-    // 吃子步需要把被吃的子的zobrist去除
-    this->m_zobrist ^= PRE_GEN.getZobrist(move.victim(), move.to());
-    // 顺便计算吃子得分
-    if (RED == this->m_side) this->m_blackScore -= VALUE[move.victim()][move.to()];
-    else this->m_redScore -= VALUE[move.victim()][move.to()];
+  // 如果走动的是将，就刷新自己的累加器
+  if (move.chess() == KING + this->m_side) {
+    historyMove.m_acc.kingPos[this->m_side] = move.to();
+    qint32 featureIndexes[33];
+    this->getAllFeatures(featureIndexes);
+    featureTransformer->refreshAccumulator(historyMove.m_acc, this->m_side, featureIndexes);
   }
-
-  // 计算得分
-  if (RED == this->m_side) {
-    this->m_redScore -= VALUE[move.chess()][move.from()];
-    this->m_redScore += VALUE[move.chess()][move.to()];
-  } else {
-    this->m_blackScore -= VALUE[move.chess()][move.from()];
-    this->m_blackScore += VALUE[move.chess()][move.to()];
-  }
+  // 否则就更新自己的累加器
+  else featureTransformer->updateAccumulator(lastAcc, historyMove.m_acc, this->m_side, move);
 
   // 换边
   this->m_side ^= OPP_SIDE;
+
+  // 不要忘记另一边累加器的也要更新
+  featureTransformer->updateAccumulator(lastAcc, historyMove.m_acc, this->m_side, move);
 
   // 补充对应的将军捉子信息
   if (isChecked()) historyMove.setChecked();
@@ -361,26 +388,18 @@ void Chessboard::unMakeMove() {
   // 还原原来的Zobrist值
   this->m_zobrist = move.zobrist();
 
-  // 还原原来的得分
-  if (RED == this->m_side) {
-    this->m_redScore -= VALUE[move.chess()][move.to()];
-    this->m_redScore += VALUE[move.chess()][move.from()];
-    if (move.isCapture()) this->m_blackScore += VALUE[move.victim()][move.to()];
-  } else {
-    this->m_blackScore -= VALUE[move.chess()][move.to()];
-    this->m_blackScore += VALUE[move.chess()][move.from()];
-    if (move.isCapture()) this->m_redScore += VALUE[move.victim()][move.to()];
-  }
-
   // 撤销这个走法
   undoMove(move);
 }
 
 void Chessboard::makeNullMove() {
   // 获取历史走法表项，并将自增走法历史表的大小
+  const Accumulator &lastAcc { this->getLastMove().m_acc };
   HistoryMove &move = this->m_historyMoves[this->m_historyMovesCount++];
   // 设置空步信息
   move.setNullMove();
+  // 复制上一个累加器的内容
+  this->getLastMove().m_acc.copyFrom(lastAcc);
   // 换边
   this->m_side ^= OPP_SIDE;
   // 计算新的Zobrist值
@@ -398,6 +417,10 @@ void Chessboard::unMakeNullMove() {
 
 void Chessboard::updateHistoryValue(const Move &move, quint8 depth) {
   this->m_historyTable.updateValue(move, depth);
+}
+
+HistoryMove &Chessboard::getLastMove() {
+  return this->m_historyMoves[this->m_historyMovesCount - 1];
 }
 
 const HistoryMove &Chessboard::getLastMove() const {
@@ -421,6 +444,8 @@ void Chessboard::undoMove(const Move &move) {
     if (RED == this->m_side) this->m_blackOccupancy.setBit(move.to());
     else this->m_redOccupancy.setBit(move.to());
     this->m_bitboards[move.victim()].setBit(move.to());
+    // 恢复存活子
+    ++this->m_piece;
     // 注意，如果是吃子步则不用清空to，因为这里原来有一个棋子
   }
 

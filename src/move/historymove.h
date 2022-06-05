@@ -1,6 +1,7 @@
 #pragma once
 #include "move.h"
 #include "bitboard.h"
+#include "accumulator.h"
 
 namespace PikaChess {
 class HistoryMove : public Move {
@@ -47,6 +48,9 @@ public:
 
   /** 设置一个走法 */
   void setMove(const Move &move);
+
+  /** 该步对应的累加器 */
+  Accumulator m_acc;
 
 private:
   /** 走该步之前的Zobrist值 */

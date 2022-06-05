@@ -2,7 +2,12 @@
 #include "searchinstance.h"
 
 namespace PikaChess {
-ChessEngine::ChessEngine() { reset(); }
+ChessEngine::ChessEngine() {
+  // 加载神经网络
+  NNUEInit();
+  // 初始化棋盘
+  reset();
+}
 
 void ChessEngine::reset() {
   // 初始局面
@@ -12,8 +17,6 @@ void ChessEngine::reset() {
 void ChessEngine::search() {
   // 重置信息
   this->m_hashTable.reset();
-  // 重新计算分值表和分值
-  this->m_chessboard.preCalculateScores();
   // 迭代加深，重置深度
   this->m_currentDepth = 1;
 

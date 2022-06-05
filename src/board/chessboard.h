@@ -3,6 +3,7 @@
 #include "historymove.h"
 #include "valuedmove.h"
 #include "historytable.h"
+#include "evaluate.h"
 
 namespace PikaChess {
 class Chessboard final {
@@ -25,6 +26,12 @@ public:
    *  @return 生成的走法的个数
    */
   quint8 genNonCapMoves(ValuedMove *moveList) const;
+
+  /**
+   * @brief 获取当前走子方的所有激活的特征
+   * @param featureIndexes 存放激活的特征的数组
+   */
+  void getAllFeatures(qint32 *featureIndexes) const;
 
   /** 当前是否被将军 */
   bool isChecked() const;
@@ -75,6 +82,7 @@ public:
   void updateHistoryValue(const Move &move, quint8 depth);
 
   /** 获得最后一个走法 */
+  HistoryMove &getLastMove();
   const HistoryMove &getLastMove() const;
 
   void setSide(quint8 newSide);
@@ -83,14 +91,8 @@ public:
 
   quint8 side() const;
 
-  /** 评价分预计算，根据局面情况预计算局面分，引擎棋力的主要来源 */
-  void preCalculateScores();
-
-  /** 局面的静态评分，只包括子力的位置分 */
-  qint16 staticScore() const;
-
   /** 获得当前局面的评分 */
-  qint16 score() const;
+  qint16 score();
 
 protected:
   /**
@@ -104,13 +106,6 @@ protected:
    * @return 被捉的子的flag
    */
   quint16 getChase();
-
-  /** 王安全分，包括空头炮，炮镇窝心马，沉底炮，车封锁将门 */
-  qint16 kingSafety() const;
-
-  /** 计算王安全分的帮助函数 */
-  qint16 kingSafety_helper(quint8 side, quint8 center,
-                           quint8 left, quint8 middle, quint8 right) const;
 
 private:
   /** 用来辅助走法生成的辅助数组棋盘 */
@@ -129,9 +124,8 @@ private:
   /** 当前局面的Zobrist值 */
   quint64 m_zobrist;
 
-  /** 当前局面的红黑方得分 */
-  quint16 m_redScore;
-  quint16 m_blackScore;
+  /** 当前局面所剩的子力个数 */
+  quint8 m_piece;
 
   /** 走棋的历史记录 */
   HistoryMove m_historyMoves[256];

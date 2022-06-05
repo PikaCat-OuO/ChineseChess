@@ -2,6 +2,7 @@ QT       += core gui network # testlib
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
+QMAKE_LFLAGS_WINDOWS += -Wl,--stack,32000000
 QMAKE_CXXFLAGS += -std=gnu++2b -march=native -masm=intel -fopenmp
 QMAKE_CXXFLAGS_RELEASE += -Ofast -flto
 # The following define makes your compiler emit warnings if you use
@@ -19,6 +20,13 @@ HEADERS += \
     src/GUI/dialog.h \
     src/board/bitboard.h \
     src/board/chessboard.h \
+    src/evaluate/accumulator.h \
+    src/evaluate/evaluate.h \
+    src/evaluate/layer/clippedrelu.h \
+    src/evaluate/layer/dense.h \
+    src/evaluate/layer/featuretransformer.h \
+    src/evaluate/layer/input.h \
+    src/evaluate/model.h \
     src/global.h \
     src/machine/searchmachine.h \
     src/machine/searchquiescencemachine.h \
@@ -59,6 +67,8 @@ INCLUDEPATH += src \
     src/search \
     src/table \
     src/move \
+    src/evaluate \
+    src/evaluate/layer \
 #    test
 
 LIBS += -fopenmp

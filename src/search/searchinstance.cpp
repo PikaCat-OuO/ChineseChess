@@ -1,8 +1,8 @@
 #include "searchinstance.h"
 
 namespace PikaChess {
-/** 搜索的衰减层数 [是否是CUT Node][第几层][第几个走法] */
-quint8 REDUCTIONS[2][64][128];
+/** 搜索的衰减层数 [第几层][第几个走法] */
+quint16 REDUCTIONS[64][128];
 
 SearchInstance::SearchInstance(const Chessboard &chessboard, HashTable &hashTable)
     : m_chessboard { chessboard }, m_hashTable { hashTable } { }
@@ -39,7 +39,7 @@ void SearchInstance::searchRoot(const qint8 depth) {
         // 对于延迟走法的处理，要求没有被将军，没有将军别人，该步不是吃子步
         if (depth >= 3 and notInCheck and newDepth not_eq depth and not lastMove.isCapture()) {
           tryScore = -searchFull(-bestScore - 1, -bestScore,
-                                 newDepth - REDUCTIONS[false][depth][moveCount]);
+                                 newDepth - REDUCTIONS[depth][moveCount]);
         }
         // 如果不满足条件则不衰减层数
         else tryScore = -searchFull(-bestScore - 1, -bestScore, newDepth);
@@ -91,45 +91,20 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
 
   // 不被将军时可以进行一些裁剪
   bool notInCheck { not this->m_chessboard.getLastMove().isChecked() };
-  bool notPVNode { beta - alpha <= 1 };
   if (notInCheck) {
-    qint16 staticEval { this->m_chessboard.staticScore() };
+    qint16 staticEval { this->m_chessboard.score() };
 
     // 无用裁剪
-    if (depth < 7 and abs(beta) < WIN_SCORE) {
+    if (depth < 9 and abs(beta) < WIN_SCORE) {
       // 裁剪的边界
-      quint8 futilityMargin = 40 * depth;
+      qint16 futilityMargin = 214 * depth;
 
       // 如果放弃一定的分值还是超出边界就返回
       if (staticEval - futilityMargin >= beta) return staticEval - futilityMargin;
     }
 
     // 适用于非PV节点的前期裁剪
-    if (notPVNode) {
-      // 剃刀裁剪
-      if (depth <= 3) {
-        // 给静态评价加上第一个边界
-        tryScore = staticEval + 40;
-
-        // 如果超出边界
-        if (tryScore < beta) {
-          // 第一层直接返回评分和静态搜索的最大值
-          if (depth == 1) return std::max(tryScore, searchQuiescence(alpha, beta));
-
-          // 其余情况加上第二个边界
-          tryScore += 60;
-
-          // 如果还是超出边界
-          if (tryScore < beta and depth <= 2) {
-            // 获得静态评分
-            qint16 newScore { searchQuiescence(alpha, beta) };
-
-            // 如果静态评分也超出边界，返回评分和静态搜索的最大值
-            if (newScore < beta) return std::max(tryScore, newScore);
-          }
-        }
-      }
-
+    if (beta - alpha <= 1) {
       /* 进行空步裁剪，不能连着走两步空步，被将军时不能走空步，层数较大时，需要进行检验
          根节点的Beta值是"MATE_SCORE"，所以不可能发生空步裁剪 */
       if (nullOk) {
@@ -140,7 +115,7 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
         // 撤销空步
         unMakeNullMove();
         // 如果足够好就可以发生截断，层数较大时要注意进行校验
-        if (tryScore >= beta and ((depth < 12 and abs(beta) < WIN_SCORE) or
+        if (tryScore >= beta and ((depth < 14 and abs(beta) < WIN_SCORE) or
                                   searchFull(beta - 1, beta, depth - 2, NO_NULL) >= beta)) {
           return tryScore;
         }
@@ -180,7 +155,7 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
       // PVS，对于延迟走法的处理，要求没有被将军，没有将军别人，该步不是吃子步
       if (depth >= 3 and notInCheck and newDepth not_eq depth and not lastMove.isCapture()) {
         tryScore = -searchFull(-alpha - 1, -alpha,
-                               newDepth - REDUCTIONS[notPVNode][depth][moveCount]);
+                               newDepth - REDUCTIONS[depth][moveCount]);
       }
       // 如果不满足条件就不衰减层数
       else tryScore = -searchFull(-alpha - 1, -alpha, newDepth);
@@ -239,6 +214,9 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
 
   qint16 bestScore { LOSS_SCORE };
 
+  // 差值裁剪的边界值
+  qint16 deltaBase { LOSS_SCORE };
+
   // 如果不被将军，先做局面评价，如果局面评价没有截断，再生成吃子走法
   bool notInCheck { not this->m_chessboard.getLastMove().isChecked() };
   if (notInCheck) {
@@ -248,12 +226,12 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
       // Beta截断
       if (tryScore >= beta) return tryScore;
 
-      // 差值(delta)裁剪，如果吃一个车都无法超过alpha就裁剪
-      if (tryScore + 200 < alpha) return tryScore;
-
       // 缩小Alpha-Beta边界
       if (tryScore > alpha) alpha = tryScore;
     }
+
+    // 调整差值裁剪的边界
+    deltaBase = bestScore + 155;
   }
 
   // 静态搜索有限状态机
@@ -264,8 +242,12 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
   while ((move = search.getNextMove()).isVaild()) {
     // 如果被将军了就不搜索这一步
     if (makeMove(move)) {
-      // 不然就获得评分并更新最好的分数
-      tryScore = -searchQuiescence(-beta, -alpha);
+      // 首先进行差值裁剪，如果加上一定的值都不能超过alpha，就认为这个走法是无用的
+      if (notInCheck and deltaBase + PIECE_VALUE[move.victim()] <= alpha) {
+        tryScore = deltaBase + PIECE_VALUE[move.victim()];
+      }
+      // 否则就获得评分并更新最好的分数
+      else tryScore = -searchQuiescence(-beta, -alpha);
 
       // 撤销走棋
       unMakeMove();
