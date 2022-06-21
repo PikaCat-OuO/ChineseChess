@@ -109,5 +109,14 @@ void HashTable::recordHash(quint8 distance, quint64 zobrist,
   this->m_hashTable[zobrist & HASH_MASK] = data;
 }
 
-void HashTable::reset() { memset(this->m_hashTable, 0, sizeof(this->m_hashTable)); }
+void HashTable::reset() {
+  for (auto &data : this->m_hashTable) {
+    HashItem hashItem { data };
+    hashItem.m_depth = 0;
+    data = hashItem.m_data;
+  }
+}
+
+void HashTable::clear() { memset(this->m_hashTable, 0, sizeof(this->m_hashTable)); }
+
 }

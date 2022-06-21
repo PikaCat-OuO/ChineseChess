@@ -540,6 +540,8 @@ void Dialog::on_Reset_clicked() {
   ui->ComputerScoreBox->setTitle("中国象棋云库");
   // 重置isFliped标志
   this->mIsFliped = false;
+  // 重置选中标志
+  this->mSelected = nullptr;
   // 设置mask为不可见
   ui->Mask1->setVisible(false);
   ui->Mask2->setVisible(false);

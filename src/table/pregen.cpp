@@ -11,6 +11,9 @@ extern __m128i BITBOARD_NOT_MASK[90];
 /** 延迟走法衰减的衰减层数 */
 extern quint16 REDUCTIONS[64][128];
 
+/** 延迟走法裁剪的裁剪层数 [第几层] */
+extern quint16 LMP_MOVE_COUNT[64];
+
 PreGen::PreGen() {
   // 位棋盘掩码初始化
   for (quint8 index { 0 }; index < 90; ++index) {
@@ -85,11 +88,12 @@ PreGen::PreGen() {
   // 生成Zobrist值;
   genZobristValues();
 
-  // 生成LMR的衰减层数数据
+  // 生成LMR的衰减层数，LMP的裁剪走法个数
   quint16 reduce[128];
   for (quint8 i { 1 }; i < 128; ++i) reduce[i] = int(21.9 * std::log(i));
 
   for (quint8 depth = 1; depth < 64; ++depth) {
+    LMP_MOVE_COUNT[depth] = 3 + depth * depth;
     for (quint8 moveCount = 1; moveCount < 128; ++moveCount) {
       int r = reduce[depth] * reduce[moveCount];
       REDUCTIONS[depth][moveCount] = (r + 534) / 1024;

@@ -12,6 +12,8 @@ ChessEngine::ChessEngine() {
 void ChessEngine::reset() {
   // 初始局面
   this->m_chessboard.parseFen("rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w");
+  // 清理置换表
+  this->m_hashTable.clear();
 }
 
 void ChessEngine::search() {
@@ -34,7 +36,7 @@ void ChessEngine::search() {
 
   forever {
     // 多线程搜索
-#pragma omp parallel for
+#pragma omp parallel for proc_bind(spread)
     for (auto &searchInstance : searchInstances) {
       searchInstance.searchRoot(this->m_currentDepth);
     }

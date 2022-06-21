@@ -4,6 +4,9 @@ namespace PikaChess {
 /** 搜索的衰减层数 [第几层][第几个走法] */
 quint16 REDUCTIONS[64][128];
 
+/** 延迟走法裁剪的裁剪层数 [第几层] */
+quint16 LMP_MOVE_COUNT[64];
+
 SearchInstance::SearchInstance(const Chessboard &chessboard, HashTable &hashTable)
     : m_chessboard { chessboard }, m_hashTable { hashTable } { }
 
@@ -92,28 +95,26 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   // 不被将军时可以进行一些裁剪
   bool notInCheck { not this->m_chessboard.getLastMove().isChecked() };
   if (notInCheck) {
-    qint16 staticEval { this->m_chessboard.score() };
-
-    // 无用裁剪
-    if (depth < 9 and abs(beta) < WIN_SCORE) {
-      // 裁剪的边界
-      qint16 futilityMargin = 214 * depth;
-
-      // 如果放弃一定的分值还是超出边界就返回
-      if (staticEval - futilityMargin >= beta) return staticEval - futilityMargin;
-    }
-
     // 适用于非PV节点的前期裁剪
     if (beta - alpha <= 1) {
+      // 获得局面的静态评分
+      qint16 staticEval { this->m_chessboard.score() };
+
+      // 无用裁剪，如果放弃一定的分值还是超出边界就返回
+      if (depth < 9 and staticEval - 214 * (depth - 1) >= beta) return staticEval;
+
       /* 进行空步裁剪，不能连着走两步空步，被将军时不能走空步，层数较大时，需要进行检验
          根节点的Beta值是"MATE_SCORE"，所以不可能发生空步裁剪 */
-      if (nullOk) {
+      if (nullOk and staticEval >= beta) {
         // 走一步空步
         makeNullMove();
         // 获得评分，深度减掉空着裁剪推荐的两层，然后本身走了一步空步，还要再减掉一层
         tryScore = -searchFull(-beta, 1 - beta, depth - 3, NO_NULL);
+        // 空步裁剪发现的胜利需要进一步验证
+        if (tryScore >= WIN_SCORE) tryScore = beta;
         // 撤销空步
         unMakeNullMove();
+
         // 如果足够好就可以发生截断，层数较大时要注意进行校验
         if (tryScore >= beta and ((depth < 14 and abs(beta) < WIN_SCORE) or
                                   searchFull(beta - 1, beta, depth - 2, NO_NULL) >= beta)) {
@@ -138,15 +139,19 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   // 最佳走法的标志
   quint8 bestMoveHashFlag { HASH_ALPHA };
   qint16 bestScore { LOSS_SCORE };
-  Move bestMove { };
+  Move bestMove { INVALID_MOVE };
 
   // 搜索计数器
   quint8 moveCount { 0 };
   // 遍历所有走法
   while ((move = search.getNextMove()).isVaild()) {
+    // 延迟走法裁剪
+    if (notInCheck and not move.isCapture() and abs(bestScore) < WIN_SCORE and
+        moveCount >= LMP_MOVE_COUNT[depth]) continue;
+
     // 如果被将军了就不搜索这一步
     if (makeMove(move)) {
-      ++moveCount;
+      ++moveCount;      
       // 不然就获得评分并更新最好的分数
       const HistoryMove &lastMove { this->m_chessboard.getLastMove() };
       // 将军延伸，如果将军了对方就多搜几步
@@ -220,15 +225,12 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
   // 如果不被将军，先做局面评价，如果局面评价没有截断，再生成吃子走法
   bool notInCheck { not this->m_chessboard.getLastMove().isChecked() };
   if (notInCheck) {
-    tryScore = this->m_chessboard.score();
-    if (tryScore > bestScore) {
-      bestScore = tryScore;
-      // Beta截断
-      if (tryScore >= beta) return tryScore;
+    bestScore = this->m_chessboard.score();
+    // Beta截断
+    if (bestScore >= beta) return bestScore;
 
-      // 缩小Alpha-Beta边界
-      if (tryScore > alpha) alpha = tryScore;
-    }
+    // 缩小Alpha-Beta边界
+    if (bestScore > alpha) alpha = bestScore;
 
     // 调整差值裁剪的边界
     deltaBase = bestScore + 155;
@@ -243,7 +245,8 @@ qint16 SearchInstance::searchQuiescence(qint16 alpha, const qint16 beta) {
     // 如果被将军了就不搜索这一步
     if (makeMove(move)) {
       // 首先进行差值裁剪，如果加上一定的值都不能超过alpha，就认为这个走法是无用的
-      if (notInCheck and deltaBase + PIECE_VALUE[move.victim()] <= alpha) {
+      if (notInCheck and not this->m_chessboard.getLastMove().isChecked() and
+          deltaBase + PIECE_VALUE[move.victim()] <= alpha) {
         tryScore = deltaBase + PIECE_VALUE[move.victim()];
       }
       // 否则就获得评分并更新最好的分数

@@ -54,6 +54,9 @@ public:
   /** 重置置换表 */
   void reset();
 
+  /** 清理置换表 */
+  void clear();
+
 private:
   __m128i __attribute__((aligned (16))) m_hashTable[HASH_SIZE];
 };
