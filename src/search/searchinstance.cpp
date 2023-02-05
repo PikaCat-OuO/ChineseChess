@@ -2,10 +2,10 @@
 
 namespace PikaChess {
 /** 搜索的衰减层数 [第几层][第几个走法] */
-quint16 REDUCTIONS[64][128];
+quint16 REDUCTIONS[100][128];
 
 /** 延迟走法裁剪的裁剪层数 [第几层] */
-quint16 LMP_MOVE_COUNT[64];
+quint16 LMP_MOVE_COUNT[100];
 
 SearchInstance::SearchInstance(const Chessboard &chessboard, HashTable &hashTable)
     : m_chessboard { chessboard }, m_hashTable { hashTable } { }
@@ -74,7 +74,7 @@ qint16 SearchInstance::searchFull(qint16 alpha, const qint16 beta,
   this->m_iidMove = INVALID_MOVE;
 
   // 达到深度就返回静态评价，由于空着裁剪，深度可能小于-1
-  if (depth <= 0) return searchQuiescence(alpha, beta);
+  if (depth <= 0 or this->m_stop) return searchQuiescence(alpha, beta);
 
   // 杀棋步数裁剪
   qint16 tryScore = LOSS_SCORE + this->m_distance;
@@ -277,6 +277,10 @@ qint16 SearchInstance::bestScore() const { return this->m_bestScore; }
 Move SearchInstance::bestMove() const { return this->m_bestMove; }
 
 quint8 SearchInstance::legalMove() const { return this->m_legalMove; }
+
+void SearchInstance::stopSearch() { this->m_stop = true; }
+
+bool SearchInstance::isStopped() const { return this->m_stop; }
 
 bool SearchInstance::makeMove(Move &move) {
   bool result { this->m_chessboard.makeMove(move) };

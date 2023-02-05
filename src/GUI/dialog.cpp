@@ -439,17 +439,8 @@ void Dialog::on_PlayerSide_currentIndexChanged(int index) {
 
 // 电脑难度选择
 void Dialog::on_ComputerHard_currentIndexChanged(int index) {
-  // 电脑每一步至少搜索多长时间（单位：毫秒）
-  switch (index) {
-  case 0:
-    this->m_chessEngine->setSearchTime(3000);
-    break;
-  case 1:
-    this->m_chessEngine->setSearchTime(6000);
-    break;
-  default:
-    this->m_chessEngine->setSearchTime(9000);
-  }
+	// 电脑每一步至少搜索多长时间（单位：毫秒）
+	this->m_chessEngine->setSearchTime(1000 * (index + 1));
 }
 
 // 翻转按钮点击槽函数
@@ -764,6 +755,7 @@ inline void Dialog::setMoving(const bool isMoving) {
 // 查找云开局库
 inline std::tuple<QString, Step> Dialog::searchBook() {
   QNetworkAccessManager cloudBook;
+  cloudBook.setTransferTimeout(500);
   // 搜索开局库
   QNetworkReply *cloudReply = cloudBook.get(
       QNetworkRequest{"http://www.chessdb.cn/chessdb.php?action=queryall&board=" +

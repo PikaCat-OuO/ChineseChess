@@ -995,6 +995,19 @@ color:transparent;</string>
      <property name="styleSheet">
       <string notr="true">font:40px</string>
      </property>
+     <property name="currentIndex">
+      <number>2</number>
+     </property>
+     <item>
+      <property name="text">
+       <string>    1 秒</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>    2 秒</string>
+      </property>
+     </item>
      <item>
       <property name="text">
        <string>    3 秒</string>
@@ -1002,7 +1015,27 @@ color:transparent;</string>
      </item>
      <item>
       <property name="text">
+       <string>    4 秒</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>    5 秒</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
        <string>    6 秒</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>    7 秒</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>    8 秒</string>
       </property>
      </item>
      <item>

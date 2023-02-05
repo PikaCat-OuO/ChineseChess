@@ -28,6 +28,12 @@ public:
   /** 当前局面有效的走法数 */
   quint8 legalMove() const;
 
+  /** 让线程停止搜索 */
+  void stopSearch();
+
+	/** 查看当前线程是否已经停止搜索 */
+	bool isStopped() const;
+
 protected:
   /** 走一步 */
   bool makeMove(Move &move);
@@ -51,6 +57,9 @@ protected:
   void setBestMove(const Move &move, qint8 depth);
 
 private:
+  /** 停止标志 */
+  volatile bool m_stop { false };
+
   /** 距离根节点的距离 */
   quint8 m_distance { 0 };
 

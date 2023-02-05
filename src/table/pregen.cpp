@@ -9,10 +9,10 @@ extern __m128i BITBOARD_MASK[90];
 extern __m128i BITBOARD_NOT_MASK[90];
 
 /** 延迟走法衰减的衰减层数 */
-extern quint16 REDUCTIONS[64][128];
+extern quint16 REDUCTIONS[100][128];
 
 /** 延迟走法裁剪的裁剪层数 [第几层] */
-extern quint16 LMP_MOVE_COUNT[64];
+extern quint16 LMP_MOVE_COUNT[100];
 
 PreGen::PreGen() {
   // 位棋盘掩码初始化
@@ -92,7 +92,7 @@ PreGen::PreGen() {
   quint16 reduce[128];
   for (quint8 i { 1 }; i < 128; ++i) reduce[i] = int(21.9 * std::log(i));
 
-  for (quint8 depth = 1; depth < 64; ++depth) {
+  for (quint8 depth = 1; depth < 100; ++depth) {
     LMP_MOVE_COUNT[depth] = 3 + depth * depth;
     for (quint8 moveCount = 1; moveCount < 128; ++moveCount) {
       int r = reduce[depth] * reduce[moveCount];

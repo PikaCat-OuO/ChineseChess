@@ -33,6 +33,15 @@ void ChessEngine::search() {
 
   // 时间控制
   auto startTimeStamp = clock();
+  auto timeMan = QtConcurrent::run([&] {
+    while (not searchInstances.front().isStopped() and
+           clock() - startTimeStamp < this->m_searchTime) {
+      std::this_thread::yield();
+    }
+    for (auto &searchInstance : searchInstances) {
+      searchInstance.stopSearch();
+    }
+  });
 
   forever {
     // 多线程搜索
@@ -41,15 +50,10 @@ void ChessEngine::search() {
       searchInstance.searchRoot(this->m_currentDepth);
     }
 
-    // 随便取出一个最好的分数查看一下
-    this->m_bestScore = searchInstances.front().bestScore();
-    this->m_bestMove = searchInstances.front().bestMove();
-
-    // 如果只有一个合法走法或者赢了或者输了或者产生了长将局面或者超过时间就停止搜索就不用再往下搜索了
-    if (searchInstances.front().legalMove() == 1 or
-        this->m_bestScore < LOST_SCORE or this->m_bestScore > WIN_SCORE or
-        clock() - startTimeStamp > this->m_searchTime) {
-      // 从所有的线程中选出分数最高的那一个走法来走
+    // 记录所有的线程中最高分数与对应的走法
+    if (not searchInstances.front().isStopped()) {
+      this->m_bestScore = searchInstances.front().bestScore();
+      this->m_bestMove = searchInstances.front().bestMove();
       for (const auto &searchInstance : searchInstances) {
         qint16 threadScore { searchInstance.bestScore() };
         if (this->m_bestScore < threadScore) {
@@ -57,10 +61,24 @@ void ChessEngine::search() {
           this->m_bestMove = searchInstance.bestMove();
         }
       }
+    } else {
+      // 如果被迫停止，那么这一层没有搜索完成
+      --this->m_currentDepth;
+    }
+
+    // 如果只有一个合法走法或者超过了最大层数或者超过时间就停止搜索就不用再往下搜索了
+    if (searchInstances.front().isStopped() or
+        searchInstances.front().legalMove() == 1 or
+        this->m_currentDepth >= 99 or
+        clock() - startTimeStamp > this->m_searchTime) {
+      // 停止时间管理
+      searchInstances.front().stopSearch();
+      timeMan.waitForFinished();
       // 走棋
       this->m_chessboard.makeMove(this->m_bestMove);
       break;
     }
+
     // 增加层数
     ++this->m_currentDepth;
   }
